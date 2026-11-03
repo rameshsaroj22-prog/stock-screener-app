@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # ----------------- PAGE CONFIG & FINTECH THEME -----------------
-st.set_page_config(page_title="AI Stock Screener & IPO Radar", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AI Stock Screener & Trading Signals", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -32,43 +32,59 @@ st.markdown("""
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #58a6ff !important;
     }
+    .company-header {
+        background: #161c28;
+        border-left: 5px solid #2962ff;
+        padding: 12px 18px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- SMART SYMBOL MAPPER -----------------
-# Agar user common naam likhe to automatic NSE symbol me badal jaye
+# ----------------- COMMON NAME MAPPER -----------------
 COMMON_NAME_MAP = {
-    "JIO": "JIOFIN.NS",
-    "JIOFIN": "JIOFIN.NS",
-    "JIO PLATFORM": "JIOFIN.NS",
-    "JIO FINANCIAL": "JIOFIN.NS",
-    "BLS": "BLSE.NS",
-    "BLSE": "BLSE.NS",
-    "BLS INTERNATIONAL": "BLS.NS",
-    "BLS E-SERVICES": "BLSE.NS",
-    "TATATECH": "TATATECH.NS",
-    "TATA TECH": "TATATECH.NS",
-    "SWIGGY": "SWIGGY.NS",
-    "ZOMATO": "ZOMATO.NS",
-    "HYUNDAI": "HYUNDAI.NS",
-    "OLA": "OLAELEC.NS",
-    "OLAELEC": "OLAELEC.NS",
-    "COAL": "COALINDIA.NS"
+    "JIO": ("JIOFIN.NS", "Jio Financial Services Limited"),
+    "JIOFIN": ("JIOFIN.NS", "Jio Financial Services Limited"),
+    "BLS": ("BLS.NS", "BLS International Services Limited"),
+    "BLSE": ("BLSE.NS", "BLS E-Services Limited"),
+    "SWIGGY": ("SWIGGY.NS", "Swiggy Limited"),
+    "ZOMATO": ("ZOMATO.NS", "Zomato Limited"),
+    "TATATECH": ("TATATECH.NS", "Tata Technologies Limited"),
+    "HYUNDAI": ("HYUNDAI.NS", "Hyundai Motor India Limited"),
+    "COAL": ("COALINDIA.NS", "Coal India Limited"),
+    "RELIANCE": ("RELIANCE.NS", "Reliance Industries Limited"),
+    "TCS": ("TCS.NS", "Tata Consultancy Services Limited"),
+    "INFY": ("INFY.NS", "Infosys Limited")
 }
 
-def resolve_ticker(user_input):
+def resolve_ticker_and_name(user_input):
     clean = user_input.strip().upper()
     if clean in COMMON_NAME_MAP:
-        return COMMON_NAME_MAP[clean]
+        return COMMON_NAME_MAP[clean][0], COMMON_NAME_MAP[clean][1]
+    
+    ticker = clean
     if not clean.endswith(".NS") and not clean.endswith(".BO") and len(clean) > 0:
-        # Default assume Indian NSE
-        return f"{clean}.NS"
-    return clean
+        ticker = f"{clean}.NS"
+    return ticker, None
+
+@st.cache_data(ttl=3600)
+def fetch_company_full_name(ticker_symbol):
+    """Fetches official registered company name."""
+    try:
+        t = yf.Ticker(ticker_symbol)
+        info = t.info
+        name = info.get('longName') or info.get('shortName')
+        if name:
+            return name
+    except Exception:
+        pass
+    clean = ticker_symbol.replace(".NS", "").replace(".BO", "")
+    return COMMON_NAME_MAP.get(clean, (ticker_symbol, clean))[1]
 
 # ----------------- GOOGLE FINANCE LIVE SCRAPER -----------------
 @st.cache_data(ttl=60)
 def fetch_google_finance_live(ticker):
-    """Fetches real-time price directly from Google Finance."""
     clean_sym = ticker.replace(".NS", "").replace(".BO", "").strip().upper()
     url = f"https://www.google.com/finance/quote/{clean_sym}:NSE"
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -79,138 +95,127 @@ def fetch_google_finance_live(ticker):
             soup = BeautifulSoup(r.text, "html.parser")
             elem = soup.find("div", class_="YMlKec fxKbKc")
             if elem:
-                price_val = float(elem.text.replace("₹", "").replace(",", "").strip())
-                return price_val
+                return float(elem.text.replace("₹", "").replace(",", "").strip())
     except Exception:
         pass
     return None
 
-# ----------------- ADAPTIVE INDICATOR ENGINE (NEW IPO FRIENDLY) -----------------
+# ----------------- INDICATORS & BUY/SELL SIGNAL ENGINE -----------------
 def calculate_adaptive_indicators(df):
-    total_candles = len(df)
+    total = len(df)
     
-    # Adaptive EMAs: Jitna data available ho utne ka EMA nikalein
-    if total_candles >= 5:
-        df['EMA_5'] = df['Close'].ewm(span=min(5, total_candles), adjust=False).mean()
-    if total_candles >= 20:
-        df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
-    else:
-        df['EMA_20'] = df['Close'].ewm(span=total_candles, adjust=False).mean()
-
-    if total_candles >= 50:
+    # Adaptive EMAs
+    df['EMA_20'] = df['Close'].ewm(span=min(20, total), adjust=False).mean()
+    if total >= 50:
         df['EMA_50'] = df['Close'].ewm(span=50, adjust=False).mean()
     else:
         df['EMA_50'] = np.nan
 
-    if total_candles >= 200:
+    if total >= 200:
         df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
     else:
         df['EMA_200'] = np.nan
 
-    # RSI (14) ya shorter window for fresh listings
-    rsi_window = 14 if total_candles >= 15 else max(3, total_candles - 1)
+    # RSI
+    rsi_win = 14 if total >= 15 else max(3, total - 1)
     delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=rsi_window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=rsi_window).mean()
+    gain = (delta.where(delta > 0, 0)).rolling(window=rsi_win).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=rsi_win).mean()
     rs = gain / (loss.replace(0, np.nan))
     df['RSI'] = 100 - (100 / (1 + rs))
     df['RSI'] = df['RSI'].fillna(50.0)
 
     # Volume SMA
-    vol_win = min(20, total_candles)
-    df['Vol_SMA'] = df['Volume'].rolling(window=vol_win).mean()
+    df['Vol_SMA'] = df['Volume'].rolling(window=min(20, total)).mean()
+
+    # --- BUY & SELL / PROFIT BOOKING SIGNALS ON CHART ---
+    df['Buy_Signal'] = np.nan
+    df['Sell_Signal'] = np.nan
+
+    for i in range(1, len(df)):
+        c_close = df['Close'].iloc[i]
+        p_close = df['Close'].iloc[i-1]
+        c_ema20 = df['EMA_20'].iloc[i]
+        p_ema20 = df['EMA_20'].iloc[i-1]
+        rsi = df['RSI'].iloc[i]
+
+        # 1. BUY SIGNAL: Price crosses above 20 EMA with positive RSI momentum
+        if p_close <= p_ema20 and c_close > c_ema20 and 38 <= rsi <= 65:
+            df.loc[df.index[i], 'Buy_Signal'] = df['Low'].iloc[i] * 0.985
+
+        # 2. SELL / PROFIT BOOKING: Overbought exhaustion (RSI > 70) OR Price breaking below 20 EMA
+        elif (rsi >= 70) or (p_close >= p_ema20 and c_close < c_ema20 and rsi < 52):
+            df.loc[df.index[i], 'Sell_Signal'] = df['High'].iloc[i] * 1.015
 
     return df
 
 def analyze_stock_adaptive(df, live_price=None):
     curr_price = live_price if live_price else float(df['Close'].iloc[-1])
     candles = len(df)
-    is_fresh_listing = candles < 50
+    is_fresh = candles < 50
     
     rsi = float(df['RSI'].iloc[-1])
-    ema_20 = float(df['EMA_20'].iloc[-1]) if 'EMA_20' in df else curr_price
+    ema_20 = float(df['EMA_20'].iloc[-1])
     curr_vol = float(df['Volume'].iloc[-1])
-    avg_vol = float(df['Vol_SMA'].iloc[-1]) if 'Vol_SMA' in df else curr_vol
+    avg_vol = float(df['Vol_SMA'].iloc[-1])
 
     score = 0
     reasons = []
 
-    if is_fresh_listing:
-        reasons.append(f"📌 Fresh Listing / Recent IPO: Trading history is {candles} days old.")
-        # Short-term IPO momentum checks
-        if curr_price > ema_20:
-            score += 4.0
-            reasons.append("Short-term Uptrend: Holding above its 20-day moving average.")
-        else:
-            reasons.append("Under Pressure: Trading below its initial listing moving average.")
-
-        # RSI Momentum for IPOs
-        if 40 <= rsi <= 65:
-            score += 3.5
-            reasons.append(f"Healthy RSI ({rsi:.1f}): Steady accumulation without being overbought.")
-        elif rsi > 70:
-            score += 1.5
-            reasons.append(f"Overheated RSI ({rsi:.1f}): High volatility risk after listing.")
-        else:
-            score += 1.5
-            reasons.append(f"Subdued RSI ({rsi:.1f}): Post-listing base building.")
-
+    # Trend Strength
+    if curr_price > ema_20:
+        score += 4.0
+        reasons.append("Bullish Bias: Price holding strongly above 20-day EMA support.")
     else:
-        # Full technical assessment for matured stocks
-        ema_50 = float(df['EMA_50'].iloc[-1]) if pd.notna(df['EMA_50'].iloc[-1]) else ema_20
-        ema_200 = float(df['EMA_200'].iloc[-1]) if pd.notna(df['EMA_200'].iloc[-1]) else ema_50
+        reasons.append("Bearish Bias: Price trading under 20-day EMA pressure.")
 
-        if curr_price > ema_50 and ema_50 >= ema_200:
-            score += 4.0
-            reasons.append("Strong Bullish Trend: Trading above 50 & 200 EMA.")
-        elif curr_price > ema_20:
-            score += 2.5
-            reasons.append("Active Momentum: Holding firmly above 20 EMA.")
-        else:
-            reasons.append("Weakness: Below major EMAs.")
-
-        if 35 <= rsi <= 60:
-            score += 3.5
-            reasons.append(f"RSI ({rsi:.1f}): Prime accumulation zone.")
-        elif rsi > 70:
-            score += 1.0
-            reasons.append(f"RSI ({rsi:.1f}): Overbought (short-term caution).")
-        else:
-            score += 1.5
-            reasons.append(f"RSI ({rsi:.1f}): Oversold rebound candidate.")
+    # RSI Check
+    if 40 <= rsi <= 62:
+        score += 3.5
+        reasons.append(f"RSI ({rsi:.1f}): Sweet spot for fresh accumulation (Not Overheated).")
+    elif rsi > 70:
+        score += 1.0
+        reasons.append(f"RSI ({rsi:.1f}): Overbought! High risk of sudden profit booking.")
+    else:
+        score += 1.5
+        reasons.append(f"RSI ({rsi:.1f}): Near support/reversal zone.")
 
     # Volume Factor
-    if curr_vol > avg_vol * 1.2:
+    if curr_vol > avg_vol * 1.25:
         score += 2.5
-        reasons.append("Volume Surge: Higher than average buying interest.")
+        reasons.append("Strong Volume: High institutional or retail buying interest.")
     else:
         score += 1.0
-        reasons.append("Volume: Normal trading flow.")
+        reasons.append("Volume: Normal daily average turnover.")
 
     score = round(min(10.0, score), 1)
 
+    # Verdicts
     if score >= 7.0:
         verdict = "STRONG BUY"
         color = "#00c853"
-        action = "High momentum breakout. Good candidate for tomorrow's opening dip."
+        action = "High probability setup. Ideal to enter with disciplined stop-loss."
     elif score >= 5.0:
-        verdict = "BUY / ACCUMULATE"
+        verdict = "ACCUMULATE / DIP BUY"
         color = "#64dd17"
-        action = "Positive accumulation structure. Suitable for staged buying."
+        action = "Positive momentum. Add slowly on intraday declines."
     elif score >= 3.5:
-        verdict = "HOLD / NEUTRAL"
+        verdict = "HOLD / CAUTION"
         color = "#ffd600"
-        action = "Consolidation phase. Wait for a clear directional breakout."
+        action = "Sideways consolidation. Wait for clear breakout above 20 EMA."
     else:
-        verdict = "SELL / AVOID"
+        verdict = "SELL / BOOK PROFIT"
         color = "#d50000"
-        action = "Persistent selling pressure. Keep strict stop-loss or stay away."
+        action = "Trend breakdown or overbought exhaustion. Book profit or exit."
 
     lookback = min(20, candles)
     support = float(df['Low'].tail(lookback).min())
     resistance = float(df['High'].tail(lookback).max())
+    
     stop_loss = round(support * 0.985, 2)
-    target = round(curr_price + max(5.0, (curr_price - stop_loss) * 2), 2)
+    risk = max(3.0, curr_price - stop_loss)
+    target_1 = round(curr_price + (risk * 1.2), 2)  # Partial Profit Booking Target
+    target_2 = round(curr_price + (risk * 2.2), 2)  # Final Target
 
     return {
         "score": score,
@@ -223,125 +228,101 @@ def analyze_stock_adaptive(df, live_price=None):
         "support": support,
         "resistance": resistance,
         "stop_loss": stop_loss,
-        "target": target,
-        "is_fresh": is_fresh_listing
+        "target_1": target_1,
+        "target_2": target_2,
+        "is_fresh": is_fresh
     }
 
 # ----------------- UI / SIDEBAR -----------------
-st.sidebar.title("🔍 Stock & IPO Screener")
+st.sidebar.title("🔍 Stock Scanner")
 
-# Basket with popular newly listed + established stocks
 default_basket = [
-    "JIOFIN.NS",     # Jio Financial Services
-    "BLSE.NS",       # BLS E-Services (Recent Listing)
-    "BLS.NS",        # BLS International
-    "TATATECH.NS",   # Tata Technologies
-    "SWIGGY.NS",     # Swiggy
-    "ZOMATO.NS",     # Zomato
-    "RELIANCE.NS",
-    "TCS.NS"
+    "BLS.NS",
+    "BLSE.NS",
+    "JIOFIN.NS",
+    "TATATECH.NS",
+    "SWIGGY.NS",
+    "ZOMATO.NS",
+    "COALINDIA.NS",
+    "RELIANCE.NS"
 ]
 
-selected_picker = st.sidebar.selectbox("Trending / New Listings:", default_basket)
-user_search = st.sidebar.text_input("Search Any Stock (e.g. BLS, JIO, SWIGGY, INFY):", "").strip()
+selected_picker = st.sidebar.selectbox("Trending / Watchlist:", default_basket)
+user_search = st.sidebar.text_input("Search Any Stock (e.g. BLS, JIO, SWIGGY, TCS):", "").strip()
 
-active_symbol = resolve_ticker(user_search) if user_search else selected_picker
+active_symbol, default_name = resolve_ticker_and_name(user_search) if user_search else (selected_picker, None)
+company_name = default_name if default_name else fetch_company_full_name(active_symbol)
 
-st.title("📈 AI Stock Screener & Tomorrow's Focus List")
-st.caption("Works for Fresh IPOs, Newly Listed Companies & Established Giants | Google Finance Synced")
+time_period = st.sidebar.selectbox("Chart Period", ["3mo", "6mo", "1y", "2y"], index=2)
 
-# ----------------- TABS -----------------
-tab_radar, tab_chart, tab_tech = st.tabs([
-    "🎯 Tomorrow's Buy Radar",
-    "📊 Candlestick Chart",
-    "⚡ Technical Factors"
-])
+st.title("📈 AI Stock Screener & Real-Time Trading Signals")
+st.caption("Live Candlestick Chart with Automatic BUY / PROFIT BOOKING Signals & Multi-Target Risk Management")
 
-# TAB 1: RADAR TABLE (SCANS NEW & OLD STOCKS ALIKE)
-with tab_radar:
-    st.subheader("🎯 Scanner: Action Stocks for Next Session")
-    st.write("Dynamic scan across trending newly listed companies and core leaders:")
-
-    radar_rows = []
-    with st.spinner("Analyzing basket with real-time indicators..."):
-        for sym in default_basket:
-            try:
-                # Fetch max history available without hardcoding 1y
-                t = yf.Ticker(sym)
-                h = t.history(period="6mo")
-                if len(h) >= 3:
-                    h = calculate_adaptive_indicators(h)
-                    g_price = fetch_google_finance_live(sym)
-                    res = analyze_stock_adaptive(h, g_price)
-                    
-                    category = "🆕 New IPO" if res['is_fresh'] else "🏢 Regular"
-                    radar_rows.append({
-                        "Type": category,
-                        "Stock": sym.replace(".NS", ""),
-                        "Live Price": f"₹{res['price']:,.2f}",
-                        "Signal": res['verdict'],
-                        "Score": f"{res['score']} / 10",
-                        "Key Support": f"₹{res['support']:,.2f}",
-                        "Stop-Loss": f"₹{res['stop_loss']:,.2f}",
-                        "Target": f"₹{res['target']:,.2f}"
-                    })
-            except Exception:
-                continue
-
-    if radar_rows:
-        df_radar = pd.DataFrame(radar_rows)
-        st.dataframe(df_radar, use_container_width=True, hide_index=True)
-    else:
-        st.info("Scanner refreshing... Please wait.")
-
-# ----------------- ACTIVE STOCK DETAILS -----------------
-st.divider()
+# ----------------- MAIN DATA PROCESSING -----------------
 try:
-    with st.spinner(f"Loading data for {active_symbol}..."):
+    with st.spinner(f"Loading data & signals for {company_name}..."):
         t_active = yf.Ticker(active_symbol)
-        df_hist = t_active.history(period="1y")
+        df_hist = t_active.history(period=time_period)
 
-        # Agar 1y me data kam hai, to 'max' period try karein
         if df_hist.empty or len(df_hist) < 3:
             df_hist = t_active.history(period="max")
 
         if df_hist.empty or len(df_hist) < 3:
-            st.error(f"'{active_symbol}' ka data find nahi hua. Kripya check karein ki symbol sahi hai (jaise JIOFIN.NS, BLSE.NS).")
+            st.error(f"'{active_symbol}' ka data nahi mil paya. Kripya symbol check karein.")
             st.stop()
 
         df_hist = calculate_adaptive_indicators(df_hist)
         g_live = fetch_google_finance_live(active_symbol)
         analysis = analyze_stock_adaptive(df_hist, g_live)
 
-        status_badge = " [🆕 Fresh Listing / IPO Mode]" if analysis['is_fresh'] else ""
-        st.subheader(f"📊 Detailed Review: {active_symbol}{status_badge}")
+        # ----------------- COMPANY FULL NAME HEADER -----------------
+        st.markdown(f"""
+            <div class="company-header">
+                <h2 style="margin: 0; color: #ffffff;">🏢 {company_name}</h2>
+                <span style="color: #58a6ff; font-weight: 600;">NSE Ticker: {active_symbol}</span>
+                {" | <span style='color: #ff9800; font-weight: 600;'>[🆕 IPO / Fresh Listing Mode]</span>" if analysis['is_fresh'] else ""}
+            </div>
+        """, unsafe_allow_html=True)
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Live Market Price", f"₹{analysis['price']:,.2f}")
+        # ----------------- METRICS CARDS (TARGETS & STOPLOSS) -----------------
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Current Market Price", f"₹{analysis['price']:,.2f}")
         c2.metric("Composite Score", f"{analysis['score']} / 10")
-        c3.metric("Key Stop-Loss", f"₹{analysis['stop_loss']:,.2f}")
-        c4.metric("Estimated Target", f"₹{analysis['target']:,.2f}")
+        c3.metric("Stop-Loss (SL)", f"₹{analysis['stop_loss']:,.2f}")
+        c4.metric("Target 1 (Book 50%)", f"₹{analysis['target_1']:,.2f}")
+        c5.metric("Target 2 (Final)", f"₹{analysis['target_2']:,.2f}")
 
-        # DECISION BANNER
+        # VERDICT BANNER
         st.markdown(f"""
             <div style="background: linear-gradient(90deg, {analysis['color']}22, #161c28); 
                         border: 1px solid {analysis['color']}; 
                         border-left: 6px solid {analysis['color']}; 
-                        padding: 16px 20px; 
+                        padding: 15px 20px; 
                         border-radius: 8px; 
                         margin: 15px 0;">
-                <h3 style="color: {analysis['color']}; margin: 0;">Verdict: {analysis['verdict']}</h3>
+                <h3 style="color: {analysis['color']}; margin: 0;">Market Verdict: {analysis['verdict']}</h3>
                 <p style="font-size: 15px; margin-top: 6px; margin-bottom: 0; color: #cbd5e1;">{analysis['action']}</p>
             </div>
         """, unsafe_allow_html=True)
 
-        # TAB 2: CANDLESTICK CHART
+        # ----------------- TABS -----------------
+        tab_chart, tab_tech, tab_radar = st.tabs([
+            "📊 Candlestick Chart with Buy/Sell Signals",
+            "⚡ Technical Factors & Levels",
+            "🎯 Next Session Radar"
+        ])
+
+        # TAB 1: CHART WITH DIRECT BUY/SELL MARKERS
         with tab_chart:
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.04, row_heights=[0.75, 0.25])
+
+            # Candlestick
             fig.add_trace(go.Candlestick(
-                x=df_hist.index, open=df_hist['Open'], high=df_hist['High'], low=df_hist['Low'], close=df_hist['Close'], name='Price'
+                x=df_hist.index, open=df_hist['Open'], high=df_hist['High'], low=df_hist['Low'], close=df_hist['Close'],
+                name='Price'
             ), row=1, col=1)
 
+            # EMAs
             if 'EMA_20' in df_hist:
                 fig.add_trace(go.Scatter(x=df_hist.index, y=df_hist['EMA_20'], line=dict(color='yellow', width=1.2), name='20 EMA'), row=1, col=1)
             if 'EMA_50' in df_hist and pd.notna(df_hist['EMA_50'].iloc[-1]):
@@ -349,25 +330,88 @@ try:
             if 'EMA_200' in df_hist and pd.notna(df_hist['EMA_200'].iloc[-1]):
                 fig.add_trace(go.Scatter(x=df_hist.index, y=df_hist['EMA_200'], line=dict(color='cyan', width=1.5), name='200 EMA'), row=1, col=1)
 
+            # --- PLOT BUY SIGNALS (GREEN UP TRIANGLES) ---
+            buys = df_hist[df_hist['Buy_Signal'].notna()]
+            if not buys.empty:
+                fig.add_trace(go.Scatter(
+                    x=buys.index,
+                    y=buys['Buy_Signal'],
+                    mode='markers+text',
+                    marker=dict(symbol='triangle-up', size=14, color='#00e676', line=dict(width=1, color='white')),
+                    text=['BUY'] * len(buys),
+                    textposition='bottom center',
+                    textfont=dict(color='#00e676', size=10, family="Arial Black"),
+                    name='BUY Signal'
+                ), row=1, col=1)
+
+            # --- PLOT SELL / PROFIT BOOKING SIGNALS (RED DOWN TRIANGLES) ---
+            sells = df_hist[df_hist['Sell_Signal'].notna()]
+            if not sells.empty:
+                fig.add_trace(go.Scatter(
+                    x=sells.index,
+                    y=sells['Sell_Signal'],
+                    mode='markers+text',
+                    marker=dict(symbol='triangle-down', size=14, color='#ff1744', line=dict(width=1, color='white')),
+                    text=['PROFIT BOOK / SELL'] * len(sells),
+                    textposition='top center',
+                    textfont=dict(color='#ff1744', size=10, family="Arial Black"),
+                    name='SELL / Book Profit'
+                ), row=1, col=1)
+
+            # Volume Bars
             vol_colors = ['#00c853' if r['Close'] >= r['Open'] else '#d50000' for _, r in df_hist.iterrows()]
             fig.add_trace(go.Bar(x=df_hist.index, y=df_hist['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
 
-            fig.update_layout(height=520, margin=dict(l=10, r=10, t=20, b=10), xaxis_rangeslider_visible=False, template="plotly_dark")
+            fig.update_layout(
+                title=f"{company_name} ({active_symbol}) - Price Action & Signals",
+                height=560,
+                margin=dict(l=10, r=10, t=40, b=10),
+                xaxis_rangeslider_visible=False,
+                template="plotly_dark",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
             st.plotly_chart(fig, use_container_width=True)
 
-        # TAB 3: TECHNICAL SUMMARY
+        # TAB 2: TECHNICAL DETAILS
         with tab_tech:
-            c_t1, c_t2 = st.columns(2)
-            with c_t1:
-                st.write("#### Key Decision Factors:")
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                st.write("#### 🎯 Execution Strategy:")
                 for r in analysis['reasons']:
                     st.write(f"• {r}")
-            with c_t2:
-                st.write("#### Key Price Levels:")
-                st.write(f"• **Support (Swing Low):** ₹{analysis['support']:,.2f}")
-                st.write(f"• **Resistance (Swing High):** ₹{analysis['resistance']:,.2f}")
-                st.write(f"• **RSI Value:** {analysis['rsi']:.2f}")
+                st.info(f"💡 **Profit Booking Rule:** Target 1 (₹{analysis['target_1']:,.2f}) aane par 50% quantity book karein aur baaki quantity ka Stop-Loss apne Buy Price par trail kar dein.")
+            with col_t2:
+                st.write("#### 📌 Key Price Benchmarks:")
+                st.write(f"• **Recent Support (Swing Low):** ₹{analysis['support']:,.2f}")
+                st.write(f"• **Recent Resistance (Swing High):** ₹{analysis['resistance']:,.2f}")
+                st.write(f"• **14-Period RSI:** {analysis['rsi']:.2f}")
                 st.write(f"• **Total Trading History:** {len(df_hist)} sessions")
 
+        # TAB 3: NEXT SESSION RADAR
+        with tab_radar:
+            st.subheader("🎯 Next Session Action Watchlist")
+            radar_rows = []
+            for s in default_basket:
+                try:
+                    h = yf.Ticker(s).history(period="6mo")
+                    if len(h) >= 3:
+                        h = calculate_adaptive_indicators(h)
+                        gp = fetch_google_finance_live(s)
+                        an = analyze_stock_adaptive(h, gp)
+                        c_name = fetch_company_full_name(s)
+                        radar_rows.append({
+                            "Company": c_name,
+                            "Ticker": s.replace(".NS", ""),
+                            "Price": f"₹{an['price']:,.2f}",
+                            "Action": an['verdict'],
+                            "Stop-Loss": f"₹{an['stop_loss']:,.2f}",
+                            "Target 1": f"₹{an['target_1']:,.2f}",
+                            "Target 2": f"₹{an['target_2']:,.2f}"
+                        })
+                except Exception:
+                    continue
+            if radar_rows:
+                st.dataframe(pd.DataFrame(radar_rows), use_container_width=True, hide_index=True)
+
 except Exception as e:
-    st.error(f"Error during analysis: {str(e)}")
+    st.error(f"Error loading dashboard: {str(e)}")
