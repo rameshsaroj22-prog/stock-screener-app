@@ -2,356 +2,307 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import requests
+from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-# ----------------- PAGE CONFIG -----------------
-st.set_page_config(page_title="AI Stock Advisor & Screener", layout="wide", initial_sidebar_state="expanded")
+# ----------------- PAGE CONFIG & THEME -----------------
+st.set_page_config(page_title="AI Stock Screener (Google Finance)", layout="wide", initial_sidebar_state="expanded")
 
-# ----------------- CUSTOM PAGE STYLING (THEME COLOR UPDATE) -----------------
 st.markdown("""
     <style>
-    /* Main App Background */
     .stApp {
         background: linear-gradient(180deg, #0b0e14 0%, #101520 100%);
         color: #e6edf3;
     }
-    
-    /* Sidebar Styling */
     section[data-testid="stSidebar"] {
         background-color: #121722 !important;
         border-right: 1px solid #1f2937;
     }
-    
-    /* Top Metric Cards */
     div[data-testid="stMetric"] {
         background-color: #161c28;
         border: 1px solid #232d3f;
         border-radius: 10px;
-        padding: 14px 18px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        padding: 12px 16px;
     }
     div[data-testid="stMetric"] label {
         color: #8b949e !important;
-        font-weight: 500;
-        font-size: 0.9rem;
     }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #58a6ff !important;
-        font-weight: 700;
-    }
-
-    /* Subheader & Section Titles */
-    h1, h2, h3, h4 {
-        color: #f0f6fc !important;
-        font-weight: 600;
-    }
-    
-    /* Tab Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        border-bottom: 1px solid #21262d;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #161b22;
-        border-radius: 6px 6px 0px 0px;
-        color: #8b949e;
-        padding: 8px 16px;
-        border: 1px solid #30363d;
-        border-bottom: none;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #1f293d !important;
-        color: #58a6ff !important;
-        border-color: #388bfd !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- HELPER FUNCTIONS -----------------
+# ----------------- GOOGLE FINANCE LIVE SCRAPER -----------------
+@st.cache_data(ttl=60)
+def fetch_google_finance_live(ticker, exchange="NSE"):
+    """
+    Fetches real-time price and daily stats directly from Google Finance
+    without needing any broker API or keys.
+    """
+    clean_ticker = ticker.replace(".NS", "").replace(".BO", "").strip().upper()
+    url = f"https://www.google.com/finance/quote/{clean_ticker}:{exchange}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        # Current price element on Google Finance
+        price_elem = soup.find("div", class_="YMlKec fxKbKc")
+        if not price_elem:
+            return None
+
+        price_str = price_elem.text.replace("₹", "").replace(",", "").strip()
+        live_price = float(price_str)
+
+        # Daily change %
+        pct_elem = soup.find("div", class_="JwB6zf")
+        pct_change = pct_elem.text.strip() if pct_elem else "0.0%"
+
+        return {
+            "price": live_price,
+            "change_pct": pct_change,
+            "source": "Google Finance Live"
+        }
+    except Exception:
+        return None
+
+# ----------------- TECHNICAL INDICATORS -----------------
 def calculate_indicators(df):
-    """Calculates EMA, RSI, and MACD on historical data."""
-    # Exponential Moving Averages
     df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
     df['EMA_50'] = df['Close'].ewm(span=50, adjust=False).mean()
     df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
 
-    # RSI (14)
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
 
-    # MACD (12, 26, 9)
     ema_12 = df['Close'].ewm(span=12, adjust=False).mean()
     ema_26 = df['Close'].ewm(span=26, adjust=False).mean()
     df['MACD'] = ema_12 - ema_26
     df['Signal_Line'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    df['MACD_Hist'] = df['MACD'] - df['Signal_Line']
-
-    # Volume 20 SMA
     df['Vol_SMA20'] = df['Volume'].rolling(window=20).mean()
     return df
 
-def analyze_stock(info, hist):
-    """Combines Technical and Fundamental metrics to score the stock."""
-    curr_price = hist['Close'].iloc[-1]
-    rsi = hist['RSI'].iloc[-1]
-    ema_20 = hist['EMA_20'].iloc[-1]
-    ema_50 = hist['EMA_50'].iloc[-1]
-    ema_200 = hist['EMA_200'].iloc[-1]
-    macd = hist['MACD'].iloc[-1]
-    signal = hist['Signal_Line'].iloc[-1]
-    curr_vol = hist['Volume'].iloc[-1]
-    avg_vol = hist['Vol_SMA20'].iloc[-1]
+def analyze_signals(df, live_price=None):
+    curr_price = live_price if live_price else float(df['Close'].iloc[-1])
+    rsi = float(df['RSI'].iloc[-1])
+    ema_20 = float(df['EMA_20'].iloc[-1])
+    ema_50 = float(df['EMA_50'].iloc[-1])
+    ema_200 = float(df['EMA_200'].iloc[-1])
+    macd = float(df['MACD'].iloc[-1])
+    signal = float(df['Signal_Line'].iloc[-1])
+    curr_vol = float(df['Volume'].iloc[-1])
+    avg_vol = float(df['Vol_SMA20'].iloc[-1])
 
-    tech_score = 0
-    tech_reasons = []
+    score = 0
+    reasons = []
 
-    # 1. Trend Analysis (EMA)
+    # Trend logic
     if curr_price > ema_50 and ema_50 > ema_200:
-        tech_score += 1.5
-        tech_reasons.append("Strong Uptrend: Price trading above both 50 & 200 EMA (Bullish Golden Alignment).")
+        score += 3.5
+        reasons.append("Bullish Trend: Price trading firmly above 50 & 200 EMA.")
     elif curr_price > ema_20:
-        tech_score += 0.75
-        tech_reasons.append("Short-term Momentum: Finding support above the 20 EMA.")
+        score += 2.0
+        reasons.append("Short-term Momentum: Holding above 20-day EMA.")
     else:
-        tech_reasons.append("Downtrend/Weakness: Price slipped below major Moving Averages.")
+        reasons.append("Weakness: Trading below key moving averages.")
 
-    # 2. RSI Check
-    if 30 <= rsi <= 50:
-        tech_score += 1.5
-        tech_reasons.append(f"RSI Value ({rsi:.1f}): Stock is in Value/Reversal Support Zone.")
-    elif 50 < rsi <= 68:
-        tech_score += 1.0
-        tech_reasons.append(f"RSI Value ({rsi:.1f}): Bullish momentum is active.")
+    # RSI
+    if 35 <= rsi <= 55:
+        score += 3.0
+        reasons.append(f"RSI ({rsi:.1f}): Reversal accumulation zone.")
+    elif 55 < rsi <= 68:
+        score += 2.5
+        reasons.append(f"RSI ({rsi:.1f}): Active bullish momentum.")
     elif rsi > 70:
-        tech_score += 0.2
-        tech_reasons.append(f"RSI Value ({rsi:.1f}) - Overbought: High risk of near-term profit booking.")
+        score += 0.5
+        reasons.append(f"RSI ({rsi:.1f}): Overbought territory (pullback risk).")
     else:
-        tech_score += 0.5
-        tech_reasons.append(f"RSI Value ({rsi:.1f}) - Oversold: Heavy decline, await bounce confirmation.")
+        score += 1.0
+        reasons.append(f"RSI ({rsi:.1f}): Deep oversold zone.")
 
-    # 3. MACD Check
+    # MACD
     if macd > signal:
-        tech_score += 1.0
-        tech_reasons.append("MACD Bullish: MACD line is trading above the Signal line.")
+        score += 2.0
+        reasons.append("MACD: Positive crossover active.")
     else:
-        tech_reasons.append("MACD Bearish: Selling pressure is indicated.")
+        reasons.append("MACD: Negative downward pressure.")
 
-    # 4. Volume Check
-    if curr_vol > avg_vol:
-        tech_score += 1.0
-        tech_reasons.append("High Volume: Strong institutional and buyer participation.")
+    # Volume
+    if curr_vol > avg_vol * 1.3:
+        score += 1.5
+        reasons.append("Volume Breakout: Heavy buyer participation today.")
     else:
-        tech_reasons.append("Normal Volume: Trading volume is around the 20-day average.")
+        reasons.append("Volume: Normal baseline activity.")
 
-    # FUNDAMENTAL ANALYSIS
-    fund_score = 0
-    fund_reasons = []
+    score = round(score, 1)
 
-    pe = info.get('trailingPE', None)
-    roe = info.get('returnOnEquity', None)
-    debt_equity = info.get('debtToEquity', None)
-    profit_margin = info.get('profitMargins', None)
-
-    # ROE Check
-    if roe and roe > 0.15:
-        fund_score += 1.5
-        fund_reasons.append(f"Strong ROE: {roe*100:.1f}% (Company generating solid returns on equity).")
-    elif roe and roe > 0.08:
-        fund_score += 0.75
-        fund_reasons.append(f"Moderate ROE: {roe*100:.1f}%.")
-    else:
-        fund_reasons.append("Weak return ratio (ROE).")
-
-    # Debt Check
-    if debt_equity is not None:
-        debt_ratio = debt_equity / 100.0 if debt_equity > 10 else debt_equity
-        if debt_ratio < 0.5:
-            fund_score += 1.5
-            fund_reasons.append(f"Low Debt / Safe: Debt-to-Equity {debt_ratio:.2f}.")
-        elif debt_ratio <= 1.0:
-            fund_score += 1.0
-            fund_reasons.append(f"Controlled Debt: Debt-to-Equity {debt_ratio:.2f}.")
-        else:
-            fund_reasons.append(f"High Debt Risk: Debt-to-Equity {debt_ratio:.2f} (Elevated liabilities).")
-    else:
-        fund_score += 0.5
-
-    # Profit Margins
-    if profit_margin and profit_margin > 0.12:
-        fund_score += 1.0
-        fund_reasons.append(f"Healthy Margins: Net profit margin is {profit_margin*100:.1f}%.")
-    elif profit_margin and profit_margin > 0:
-        fund_score += 0.5
-        fund_reasons.append(f"Net Profit Margin: {profit_margin*100:.1f}%.")
-    else:
-        fund_reasons.append("Company profit margin is weak or negative.")
-
-    # PE Valuation
-    if pe and 5 < pe < 35:
-        fund_score += 1.0
-        fund_reasons.append(f"Fair Valuation: P/E ratio is {pe:.1f}.")
-    elif pe and pe >= 35:
-        fund_score += 0.3
-        fund_reasons.append(f"Premium Valuation: P/E ratio is {pe:.1f} (High valuation multiple).")
-    else:
-        fund_reasons.append("Valuation data is limited or negative earnings.")
-
-    total_score = round(tech_score + fund_score, 1)
-
-    # FINAL VERDICT
-    if total_score >= 7.5:
+    if score >= 7.5:
         verdict = "STRONG BUY"
-        verdict_color = "#00c853"
-        action = "Strong confluence of technical breakout and solid fundamentals. Fresh entry recommended with defined stop-loss."
-    elif total_score >= 6.0:
+        color = "#00c853"
+        action = "High-probability setup for tomorrow's opening. Keep trailing stop-loss."
+    elif score >= 5.5:
         verdict = "BUY / ACCUMULATE"
-        verdict_color = "#64dd17"
-        action = "Favorable trend. Suitable for steady accumulation on minor pullbacks/dips."
-    elif total_score >= 4.0:
+        color = "#64dd17"
+        action = "Positive setup. Suitable to enter on intraday dips."
+    elif score >= 4.0:
         verdict = "HOLD / NEUTRAL"
-        verdict_color = "#ffd600"
-        action = "Avoid aggressive fresh purchases. Existing investors can maintain position with trailing stop-loss."
+        color = "#ffd600"
+        action = "Range-bound movement. Avoid fresh high entry."
     else:
         verdict = "SELL / AVOID"
-        verdict_color = "#d50000"
-        action = "Technical breakdown or deteriorating financial indicators. Consider booking profits or avoiding entry."
+        color = "#d50000"
+        action = "Deteriorating technical levels. Book profits or avoid fresh buy."
 
-    # Target & Stop Loss Calculation
-    support = hist['Low'].tail(20).min()
-    resistance = hist['High'].tail(20).max()
-    stop_loss = round(support * 0.98, 2)
+    support = float(df['Low'].tail(20).min())
+    resistance = float(df['High'].tail(20).max())
+    stop_loss = round(support * 0.985, 2)
     target = round(curr_price + (curr_price - stop_loss) * 2, 2)
 
     return {
-        "score": total_score,
+        "score": score,
         "verdict": verdict,
-        "verdict_color": verdict_color,
+        "color": color,
         "action": action,
-        "tech_score": tech_score,
-        "fund_score": fund_score,
-        "tech_reasons": tech_reasons,
-        "fund_reasons": fund_reasons,
-        "curr_price": curr_price,
+        "reasons": reasons,
+        "price": curr_price,
         "rsi": rsi,
-        "stop_loss": stop_loss,
-        "target": target,
         "support": support,
-        "resistance": resistance
+        "resistance": resistance,
+        "stop_loss": stop_loss,
+        "target": target
     }
 
 # ----------------- UI / SIDEBAR -----------------
-st.sidebar.title("🔍 Stock Scanner")
-symbol_input = st.sidebar.text_input("Enter Stock Ticker", value="COALINDIA.NS")
-st.sidebar.caption("💡 For Indian stocks, append .NS or .BO (e.g. RELIANCE.NS, COALINDIA.NS, INFY.NS). For US stocks: AAPL, TSLA, NVDA.")
+st.sidebar.title(" Google Finance Radar")
 
-time_period = st.sidebar.selectbox("Timeframe", ["6mo", "1y", "2y", "5y"], index=1)
+# Daily Watchlist pool
+default_basket = ["RELIANCE.NS", "TCS.NS", "INFY.NS", "TATAMOTORS.NS", "HDFCBANK.NS", "SBIN.NS", "ITC.NS", "COALINDIA.NS"]
+selected_ticker = st.sidebar.selectbox("Select Active Stock:", default_basket)
+custom_ticker = st.sidebar.text_input("Or Search Any Ticker (e.g. ZOMATO.NS, JIOFIN.NS):", "").strip().upper()
 
-# ----------------- MAIN EXECUTION -----------------
-st.title("📈 AI Stock Fundamental & Technical Advisor")
+active_symbol = custom_ticker if custom_ticker else selected_ticker
 
-if symbol_input:
-    with st.spinner(f"Fetching data and running analysis for {symbol_input}..."):
-        try:
-            ticker = yf.Ticker(symbol_input.strip().upper())
-            df = ticker.history(period=time_period)
+st.title(" AI Stock Screener & Tomorrow's Buy Watchlist")
+st.caption("Real-time pricing synced with Google Finance | Quantitative 10-Point Technical Engine")
 
-            if df.empty or len(df) < 50:
-                st.error("No sufficient historical data found for this symbol. Please verify the ticker format.")
-                st.stop()
+# ----------------- TABS: TOMORROW'S WATCHLIST & DEEP ANALYSIS -----------------
+tab_radar, tab_chart, tab_tech = st.tabs([
+    " Tomorrow's Action Watchlist",
+    " Interactive Candlestick Chart",
+    " Technical Breakdown"
+])
 
-            df = calculate_indicators(df)
-            info = ticker.info
-            analysis = analyze_stock(info, df)
+# TAB 1: AUTOMATED RADAR FOR TOMORROW'S MARKET OPEN
+with tab_radar:
+    st.subheader(" Scanner: Best Stocks for Tomorrow's Session")
+    st.write("Calculated on End-of-Day Momentum, Volume Surge, and EMA Alignment:")
 
-            # TOP SUMMARY METRICS BAR
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Current Market Price", f"₹{analysis['curr_price']:,.2f}")
-            c2.metric("Composite Score", f"{analysis['score']} / 10")
-            c3.metric("Suggested Stop-Loss", f"₹{analysis['stop_loss']:,.2f}")
-            c4.metric("Estimated Target", f"₹{analysis['target']:,.2f}")
+    radar_results = []
+    with st.spinner("Scanning basket using Google Finance & Technical Indicators..."):
+        for sym in default_basket:
+            try:
+                hist = yf.Ticker(sym).history(period="6mo")
+                if len(hist) > 30:
+                    hist = calculate_indicators(hist)
+                    g_data = fetch_google_finance_live(sym)
+                    live_p = g_data['price'] if g_data else None
+                    res = analyze_signals(hist, live_p)
+                    
+                    radar_results.append({
+                        "Stock": sym.replace(".NS", ""),
+                        "Live Price": f"₹{res['price']:,.2f}",
+                        "Signal": res['verdict'],
+                        "Score": f"{res['score']} / 10",
+                        "Entry Zone": f"₹{res['price']:,.2f}",
+                        "Suggested SL": f"₹{res['stop_loss']:,.2f}",
+                        "Target": f"₹{res['target']:,.2f}"
+                    })
+            except Exception:
+                continue
 
-            # DECISION BANNER (CUSTOM FINTECH CARD)
-            st.markdown(f"""
-                <div style="background: linear-gradient(90deg, {analysis['verdict_color']}18, #161c28); 
-                            border: 1px solid {analysis['verdict_color']}; 
-                            border-left: 6px solid {analysis['verdict_color']}; 
-                            padding: 18px 24px; 
-                            border-radius: 10px; 
-                            margin: 20px 0;">
-                    <h2 style="color: {analysis['verdict_color']}; margin: 0; font-size: 1.6rem; letter-spacing: 0.5px;">
-                        Verdict: {analysis['verdict']}
-                    </h2>
-                    <p style="font-size: 15px; margin-top: 8px; margin-bottom: 0; color: #cbd5e1;">
-                        {analysis['action']}
-                    </p>
-                </div>
-            """, unsafe_allow_html=True)
+    if radar_results:
+        radar_df = pd.DataFrame(radar_results)
+        # Sort so highest score / Strong Buy appears on top
+        st.dataframe(radar_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("Scanner running... Click Refresh to update quotes.")
 
-            # TABS FOR DEEP ANALYSIS
-            tab_chart, tab_tech, tab_fund = st.tabs([
-                "📊 Interactive Candlestick Chart", 
-                "⚡ Technical Analysis", 
-                "🏢 Fundamental Ratios"
-            ])
+# ----------------- ACTIVE STOCK EVALUATION -----------------
+st.divider()
+try:
+    hist = yf.Ticker(active_symbol).history(period="1y")
+    if hist.empty or len(hist) < 30:
+        st.error(f"Data not available for {active_symbol}. Please ensure the ticker format is correct.")
+        st.stop()
 
-            # TAB 1: CHART (UNCHANGED CHART COLOUR CODES)
-            with tab_chart:
-                fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.04, row_heights=[0.75, 0.25])
-                
-                # Candlesticks
-                fig.add_trace(go.Candlestick(
-                    x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-                    name='Price'
-                ), row=1, col=1)
+    hist = calculate_indicators(hist)
+    g_data = fetch_google_finance_live(active_symbol)
+    live_price = g_data['price'] if g_data else float(hist['Close'].iloc[-1])
+    price_tag = f"₹{live_price:,.2f}" + (f" ({g_data['change_pct']})" if g_data else "")
 
-                # EMAs (Colors remain: yellow, orange, cyan)
-                fig.add_trace(go.Scatter(x=df.index, y=df['EMA_20'], line=dict(color='yellow', width=1), name='20 EMA'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=df.index, y=df['EMA_50'], line=dict(color='orange', width=1.2), name='50 EMA'), row=1, col=1)
-                fig.add_trace(go.Scatter(x=df.index, y=df['EMA_200'], line=dict(color='cyan', width=1.5), name='200 EMA'), row=1, col=1)
+    analysis = analyze_signals(hist, live_price)
 
-                # Volume Bar (Colors remain: green, red)
-                colors = ['green' if row['Close'] >= row['Open'] else 'red' for _, row in df.iterrows()]
-                fig.add_trace(go.Bar(x=df.index, y=df['Volume'], marker_color=colors, name='Volume'), row=2, col=1)
+    st.subheader(f" Detailed Analysis: {active_symbol}")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Live Market Price", price_tag)
+    c2.metric("Composite Score", f"{analysis['score']} / 10")
+    c3.metric("Key Stop-Loss", f"₹{analysis['stop_loss']:,.2f}")
+    c4.metric("Estimated Target", f"₹{analysis['target']:,.2f}")
 
-                fig.update_layout(
-                    height=580,
-                    margin=dict(l=20, r=20, t=30, b=20),
-                    xaxis_rangeslider_visible=False,
-                    template="plotly_dark"
-                )
-                st.plotly_chart(fig, use_container_width=True)
+    # VERDICT BANNER
+    st.markdown(f"""
+        <div style="background: linear-gradient(90deg, {analysis['color']}20, #161c28); 
+                    border: 1px solid {analysis['color']}; 
+                    border-left: 6px solid {analysis['color']}; 
+                    padding: 16px 20px; 
+                    border-radius: 8px; 
+                    margin: 15px 0;">
+            <h3 style="color: {analysis['color']}; margin: 0;">Decision: {analysis['verdict']}</h3>
+            <p style="font-size: 15px; margin-top: 6px; margin-bottom: 0; color: #cbd5e1;">{analysis['action']}</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-            # TAB 2: TECHNICAL DETAILS
-            with tab_tech:
-                col_t1, col_t2 = st.columns(2)
-                with col_t1:
-                    st.subheader(f"Technical Score: {analysis['tech_score']} / 5")
-                    for reason in analysis['tech_reasons']:
-                        st.write(f"• {reason}")
-                with col_t2:
-                    st.subheader("Key Price Levels")
-                    st.write(f"• **20-Day Support:** ₹{analysis['support']:,.2f}")
-                    st.write(f"• **20-Day Resistance:** ₹{analysis['resistance']:,.2f}")
-                    st.write(f"• **14-Period RSI:** {analysis['rsi']:.2f}")
+    # TAB 2: CHART
+    with tab_chart:
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.04, row_heights=[0.75, 0.25])
+        fig.add_trace(go.Candlestick(
+            x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'
+        ), row=1, col=1)
 
-            # TAB 3: FUNDAMENTALS
-            with tab_fund:
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    st.subheader(f"Fundamental Score: {analysis['fund_score']} / 5")
-                    for reason in analysis['fund_reasons']:
-                        st.write(f"• {reason}")
-                with col_f2:
-                    st.subheader("Financial Snapshot")
-                    st.write(f"• **Market Cap:** ₹{info.get('marketCap', 0):,}")
-                    st.write(f"• **P/E Ratio:** {info.get('trailingPE', 'N/A')}")
-                    st.write(f"• **Book Value:** ₹{info.get('bookValue', 'N/A')}")
-                    st.write(f"• **52-Week High:** ₹{info.get('fiftyTwoWeekHigh', 'N/A')}")
-                    st.write(f"• **52-Week Low:** ₹{info.get('fiftyTwoWeekLow', 'N/A')}")
+        fig.add_trace(go.Scatter(x=hist.index, y=hist['EMA_20'], line=dict(color='yellow', width=1), name='20 EMA'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=hist.index, y=hist['EMA_50'], line=dict(color='orange', width=1.2), name='50 EMA'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=hist.index, y=hist['EMA_200'], line=dict(color='cyan', width=1.5), name='200 EMA'), row=1, col=1)
 
-        except Exception as e:
-            st.error(f"Error during analysis: {str(e)}")
+        vol_colors = ['#00c853' if r['Close'] >= r['Open'] else '#d50000' for _, r in hist.iterrows()]
+        fig.add_trace(go.Bar(x=hist.index, y=hist['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
+
+        fig.update_layout(height=540, margin=dict(l=10, r=10, t=20, b=10), xaxis_rangeslider_visible=False, template="plotly_dark")
+        st.plotly_chart(fig, use_container_width=True)
+
+    # TAB 3: TECHNICAL SUMMARY
+    with tab_tech:
+        c_t1, c_t2 = st.columns(2)
+        with c_t1:
+            st.write("#### Key Decision Factors:")
+            for r in analysis['reasons']:
+                st.write(f"• {r}")
+        with c_t2:
+            st.write("#### Price Benchmarks:")
+            st.write(f"• **20-Day Support:** ₹{analysis['support']:,.2f}")
+            st.write(f"• **20-Day Resistance:** ₹{analysis['resistance']:,.2f}")
+            st.write(f"• **14-Period RSI:** {analysis['rsi']:.2f}")
+
+except Exception as e:
+    st.error(f"Error loading dashboard: {str(e)}")
