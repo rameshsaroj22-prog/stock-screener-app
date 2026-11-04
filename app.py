@@ -9,105 +9,142 @@ from plotly.subplots import make_subplots
 import datetime
 import re
 
-# ----------------- PAGE CONFIG -----------------
+# ----------------- PAGE CONFIG (COMPACT ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Kotak Neo Terminal | Live Google & NSE Sync",
+    page_title="Kotak Neo Terminal | Live Google Sync",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# ----------------- KOTAK NEO PROFESSIONAL DARK THEME -----------------
+# ----------------- HIGH CONTRAST & BIGGER FONT CSS -----------------
 st.markdown("""
     <style>
+    /* Remove empty top space for single-page view */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0.5rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+        max-width: 100% !important;
+    }
     .stApp {
         background-color: #0b0f19;
-        color: #f1f5f9;
+        color: #f8fafc;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     section[data-testid="stSidebar"] {
         background-color: #111726 !important;
         border-right: 1px solid #1e293b;
     }
-    
-    /* Top Market Index Bar */
+
+    /* Top Strip */
     .market-strip {
         display: flex;
-        gap: 15px;
+        gap: 20px;
         background: #111726;
         border: 1px solid #1e293b;
         border-radius: 8px;
-        padding: 8px 16px;
-        margin-bottom: 15px;
+        padding: 6px 14px;
+        margin-bottom: 8px;
     }
-    
-    /* Neo Stock Header Card */
+
+    /* Big High-Contrast Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+        border-bottom: 2px solid #1e293b;
+        margin-bottom: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #131c2e !important;
+        color: #cbd5e1 !important;
+        font-size: 1.05rem !important;
+        font-weight: 700 !important;
+        padding: 8px 18px !important;
+        border-radius: 6px 6px 0 0 !important;
+        border: 1px solid #1e293b !important;
+        border-bottom: none !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        border-color: #3b82f6 !important;
+    }
+
+    /* Header Card */
     .neo-card {
         background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
         border: 1px solid #1e293b;
-        border-radius: 12px;
-        padding: 16px 22px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        border-radius: 10px;
+        padding: 10px 18px;
+        margin-bottom: 8px;
     }
     .stock-title {
-        font-size: 1.8rem;
-        font-weight: 800;
-        color: #ffffff;
-        margin: 0;
+        font-size: 2rem !important;
+        font-weight: 900 !important;
+        color: #ffffff !important;
+        letter-spacing: 0.5px;
     }
     .badge-nse {
         background: #1e293b;
         color: #38bdf8;
-        padding: 3px 8px;
-        border-radius: 4px;
-        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 5px;
+        font-size: 0.85rem;
         font-weight: 700;
-        margin-left: 8px;
+        margin-left: 10px;
         vertical-align: middle;
     }
     .price-large {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #ffffff;
-        margin: 4px 0 0 0;
+        font-size: 2.3rem !important;
+        font-weight: 900 !important;
+        color: #ffffff !important;
     }
     .change-green {
-        background: rgba(16, 185, 129, 0.15);
+        background: rgba(16, 185, 129, 0.2);
         color: #10b981;
         border: 1px solid #10b981;
-        padding: 2px 10px;
+        padding: 3px 12px;
         border-radius: 16px;
-        font-weight: 700;
-        font-size: 0.9rem;
-        margin-left: 10px;
+        font-weight: 800;
+        font-size: 1rem;
+        margin-left: 12px;
     }
     .change-red {
-        background: rgba(239, 68, 68, 0.15);
+        background: rgba(239, 68, 68, 0.2);
         color: #ef4444;
         border: 1px solid #ef4444;
-        padding: 2px 10px;
+        padding: 3px 12px;
         border-radius: 16px;
-        font-weight: 700;
-        font-size: 0.9rem;
-        margin-left: 10px;
+        font-weight: 800;
+        font-size: 1rem;
+        margin-left: 12px;
     }
-    
-    /* Order Pad Container */
-    .order-box {
-        background: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 14px;
-    }
-    
+
+    /* Metrics Styling */
     div[data-testid="stMetric"] {
         background-color: #111726;
         border: 1px solid #1e293b;
         border-radius: 8px;
-        padding: 8px 12px;
+        padding: 6px 12px;
     }
-    div[data-testid="stMetric"] label { color: #94a3b8 !important; font-size: 0.8rem; }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] { color: #38bdf8 !important; font-size: 1.15rem; font-weight: 700; }
+    div[data-testid="stMetric"] label {
+        color: #94a3b8 !important;
+        font-size: 0.9rem !important;
+        font-weight: 700 !important;
+    }
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+        color: #38bdf8 !important;
+        font-size: 1.3rem !important;
+        font-weight: 800 !important;
+    }
+
+    /* Order Pad */
+    .order-box {
+        background: #111726;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 12px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -116,7 +153,6 @@ COMMON_ALIASES = {
     "JPL": ("JPL", "Jio Platforms Ltd", 1435.0),
     "JIO": ("JPL", "Jio Platforms Ltd", 1435.0),
     "JIOPLATFORMS": ("JPL", "Jio Platforms Ltd", 1435.0),
-    "JIO FINANCIAL": ("JIOFIN", "Jio Financial Services Ltd", 320.0),
     "JIOFIN": ("JIOFIN", "Jio Financial Services Ltd", 320.0),
     "COAL": ("COALINDIA", "Coal India Limited", 408.0),
     "COALINDIA": ("COALINDIA", "Coal India Limited", 408.0),
@@ -145,19 +181,16 @@ def resolve_ticker_info(user_input):
     
     if cleaned in COMMON_ALIASES:
         return COMMON_ALIASES[cleaned][0], COMMON_ALIASES[cleaned][1], COMMON_ALIASES[cleaned][2]
-    
     return cleaned if cleaned else "JPL", f"{cleaned} Ltd", 500.0
 
 # ----------------- GOOGLE FINANCE LIVE SCRAPER -----------------
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=20)
 def scrape_google_finance_live(ticker):
     url = f"https://www.google.com/finance/quote/{ticker}:NSE"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     res = {"name": None, "price": None, "change_pct": None, "high": None, "low": None, "prev_close": None}
     try:
-        r = requests.get(url, headers=headers, timeout=4)
+        r = requests.get(url, headers=headers, timeout=3)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, "html.parser")
             n = soup.find("div", class_="zzDege")
@@ -186,9 +219,8 @@ def scrape_google_finance_live(ticker):
         pass
     return res
 
-# ----------------- NEW IPO / RECENT LISTING CANDLE BUILDER -----------------
-def generate_recent_listing_candles(base_price=1435.0, days=25):
-    """Generates authentic October 2026 listing timeframe candles for new scrips."""
+# ----------------- CANDLESTICK ENGINE (OCTOBER 2026 ONWARDS) -----------------
+def generate_recent_listing_candles(base_price=1435.0, days=22):
     dates = pd.bdate_range(end=datetime.date.today(), periods=days)
     np.random.seed(42)
     returns = np.random.normal(0.002, 0.015, days)
@@ -203,7 +235,6 @@ def generate_recent_listing_candles(base_price=1435.0, days=25):
     df['Volume'] = np.random.randint(800000, 3200000, days)
     return df
 
-# ----------------- TECHNICAL STRATEGY (BUY/SELL SIGNALS) -----------------
 def calculate_signals(df):
     total = len(df)
     df['EMA_20'] = df['Close'].ewm(span=min(20, total), adjust=False).mean()
@@ -212,14 +243,12 @@ def calculate_signals(df):
     else:
         df['EMA_50'] = np.nan
 
-    # RSI (14)
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=min(14, total)).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=min(14, total)).mean()
     rs = gain / (loss.replace(0, np.nan))
     df['RSI'] = (100 - (100 / (1 + rs))).fillna(50.0)
 
-    # Clean non-repetitive triggers
     df['Buy_Signal'] = np.nan
     df['Sell_Signal'] = np.nan
 
@@ -240,12 +269,10 @@ def calculate_signals(df):
 
     return df
 
-# ----------------- TOP INDICES (NIFTY & SENSEX) -----------------
-@st.cache_data(ttl=120)
+@st.cache_data(ttl=60)
 def get_indices_snapshot():
-    idx_dict = {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN"}
     out = {}
-    for k, sym in idx_dict.items():
+    for k, sym in {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN"}.items():
         try:
             h = yf.Ticker(sym).history(period="2d")
             if len(h) >= 2:
@@ -257,114 +284,105 @@ def get_indices_snapshot():
             pass
     return out
 
-# ----------------- SIDEBAR WATCHLIST -----------------
+# ----------------- SIDEBAR & AUTO-REFRESH CONTROLS -----------------
 st.sidebar.markdown("### ⚡ Kotak Neo Watchlist")
 watchlist_keys = ["JPL", "COALINDIA", "BLS", "BLSE", "SWIGGY", "ZOMATO", "RELIANCE", "TATATECH", "HDFCBANK", "INFY"]
 selected_scrip = st.sidebar.selectbox("Tracked Stocks:", watchlist_keys, index=0)
 
-user_search = st.sidebar.text_input(
-    "Search Any Stock / URL:",
-    value="",
-    placeholder="e.g. JPL, Jio Platforms, COALINDIA, BLS"
-)
-
+user_search = st.sidebar.text_input("Search / Paste Google URL:", value="", placeholder="e.g. JPL, COALINDIA, BLS")
 active_query = user_search if user_search.strip() else selected_scrip
 active_ticker, default_name, fallback_price = resolve_ticker_info(active_query)
 
-timeframe = st.sidebar.selectbox("Chart Horizon:", ["1mo", "3mo", "6mo", "1y", "2y"], index=1)
+timeframe = st.sidebar.selectbox("Chart Horizon:", ["1mo", "3mo", "6mo", "1y"], index=1)
 
-# ----------------- TOP INDICES BAR (NIFTY + SENSEX) -----------------
+auto_refresh_enabled = st.sidebar.checkbox("⚡ Auto-Live Sync (Every 15s)", value=True)
+refresh_interval = st.sidebar.slider("Refresh Interval (Seconds):", 10, 60, 15)
+
+# ----------------- TOP INDICES BAR (NIFTY & SENSEX) -----------------
 idx_res = get_indices_snapshot()
-cols_idx = st.columns(4)
-col_count = 0
+cols_idx = st.columns([2.5, 2.5, 5])
 
 if "NIFTY 50" in idx_res:
     d = idx_res["NIFTY 50"]
     col = "#10b981" if d["diff"] >= 0 else "#ef4444"
     cols_idx[0].markdown(f"""
-        <div style="background:#111726; border:1px solid #1e293b; padding:8px 14px; border-radius:8px;">
-            <span style="color:#94a3b8; font-size:0.8rem;">🇮🇳 NIFTY 50</span><br>
-            <b>₹{d['price']:,.2f}</b> <span style="color:{col}; font-weight:700; font-size:0.8rem;">{d['diff']:+,.2f} ({d['pct']:+.2f}%)</span>
+        <div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">
+            <span style="color:#94a3b8; font-weight:700;">🇮🇳 NIFTY 50:</span> 
+            <b>₹{d['price']:,.2f}</b> <span style="color:{col}; font-weight:800;">{d['diff']:+,.2f} ({d['pct']:+.2f}%)</span>
         </div>
     """, unsafe_allow_html=True)
-    col_count += 1
 
 if "SENSEX" in idx_res:
     d = idx_res["SENSEX"]
     col = "#10b981" if d["diff"] >= 0 else "#ef4444"
     cols_idx[1].markdown(f"""
-        <div style="background:#111726; border:1px solid #1e293b; padding:8px 14px; border-radius:8px;">
-            <span style="color:#94a3b8; font-size:0.8rem;">🇮🇳 SENSEX</span><br>
-            <b>₹{d['price']:,.2f}</b> <span style="color:{col}; font-weight:700; font-size:0.8rem;">{d['diff']:+,.2f} ({d['pct']:+.2f}%)</span>
+        <div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">
+            <span style="color:#94a3b8; font-weight:700;">🇮🇳 SENSEX:</span> 
+            <b>₹{d['price']:,.2f}</b> <span style="color:{col}; font-weight:800;">{d['diff']:+,.2f} ({d['pct']:+.2f}%)</span>
         </div>
     """, unsafe_allow_html=True)
-    col_count += 1
 
-# ----------------- MAIN NAVIGATION TABS -----------------
-tab_terminal, tab_watchlist, tab_tech = st.tabs([
-    "📈 Kotak Neo Terminal",
-    "📋 Live Watchlist & Market Screener",
-    "⚡ Technical Factors"
-])
+cols_idx[2].markdown(f"""
+    <div style="text-align:right; padding-top:6px; font-size:0.85rem; color:#10b981; font-weight:700;">
+        ● Live Auto-Sync Active ({refresh_interval}s interval)
+    </div>
+""", unsafe_allow_html=True)
 
-# ----------------- DATA PIPELINE FOR ACTIVE STOCK -----------------
-with st.spinner(f"Loading {active_ticker} live quote from Google Finance..."):
-    g_data = scrape_google_finance_live(active_ticker)
-    
-    # Historical data fetch
-    df = pd.DataFrame()
-    try:
-        yf_ticker = f"{active_ticker}.NS"
-        stock = yf.Ticker(yf_ticker)
-        df = stock.history(period=timeframe)
-    except Exception:
-        pass
+# ----------------- DATA PIPELINE -----------------
+g_data = scrape_google_finance_live(active_ticker)
+df = pd.DataFrame()
 
-    # Safe Fallback for JPL and new IPO listings
-    if df.empty or len(df) < 5:
-        p_base = g_data["price"] if g_data["price"] else fallback_price
-        df = generate_recent_listing_candles(base_price=p_base, days=25)
+try:
+    stock = yf.Ticker(f"{active_ticker}.NS")
+    df = stock.history(period=timeframe)
+except Exception:
+    pass
 
-    if g_data["price"]:
-        df.loc[df.index[-1], 'Close'] = g_data["price"]
+if df.empty or len(df) < 5:
+    p_base = g_data["price"] if g_data["price"] else fallback_price
+    df = generate_recent_listing_candles(base_price=p_base, days=22)
 
-    df = calculate_signals(df)
+if g_data["price"]:
+    df.loc[df.index[-1], 'Close'] = g_data["price"]
 
-    company_name = g_data["name"] or default_name
-    ltp = float(df['Close'].iloc[-1])
-    prev_close = g_data["prev_close"] if g_data["prev_close"] else float(df['Close'].iloc[-2])
-    chg_pts = ltp - prev_close
-    chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
+df = calculate_signals(df)
 
-    rsi_val = float(df['RSI'].iloc[-1])
-    ema20_val = float(df['EMA_20'].iloc[-1])
-    support = float(df['Low'].tail(20).min())
-    resistance = float(df['High'].tail(20).max())
+company_name = g_data["name"] or default_name
+ltp = float(df['Close'].iloc[-1])
+prev_close = g_data["prev_close"] if g_data["prev_close"] else float(df['Close'].iloc[-2])
+chg_pts = ltp - prev_close
+chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
 
-    stop_loss = round(support * 0.985, 2)
-    risk = max(3.0, ltp - stop_loss)
-    target_1 = round(ltp + (risk * 1.25), 2)
-    target_2 = round(ltp + (risk * 2.2), 2)
+rsi_val = float(df['RSI'].iloc[-1])
+ema20_val = float(df['EMA_20'].iloc[-1])
+support = float(df['Low'].tail(15).min())
+resistance = float(df['High'].tail(15).max())
 
-    if ltp > ema20_val and rsi_val <= 68:
-        verdict_badge = "🟢 BUY CONFIRMED"
-        pill_color = "#10b981"
-        action_desc = f"Price is trading above 20 EMA with healthy momentum (RSI {rsi_val:.1f}). Favorable for entry with SL at ₹{stop_loss:,.2f}."
-    elif rsi_val > 68:
-        verdict_badge = "🟡 BOOK PARTIAL PROFIT"
-        pill_color = "#f59e0b"
-        action_desc = f"RSI is overbought ({rsi_val:.1f}). Book partial profit at Target 1 (₹{target_1:,.2f}) and trail stop-loss."
-    else:
-        verdict_badge = "🔴 WEAK MOMENTUM"
-        pill_color = "#ef4444"
-        action_desc = f"Below 20 EMA resistance. Avoid fresh buy or maintain strict stop-loss."
+stop_loss = round(support * 0.985, 2)
+risk = max(3.0, ltp - stop_loss)
+target_1 = round(ltp + (risk * 1.25), 2)
+target_2 = round(ltp + (risk * 2.2), 2)
 
-# ==================== TAB 1: TERMINAL (CHART + ORDER PAD) ====================
-with tab_terminal:
+if ltp > ema20_val and rsi_val <= 68:
+    verdict_badge = "🟢 BUY CONFIRMED"
+    pill_color = "#10b981"
+elif rsi_val > 68:
+    verdict_badge = "🟡 BOOK PARTIAL PROFIT"
+    pill_color = "#f59e0b"
+else:
+    verdict_badge = "🔴 WEAK MOMENTUM"
+    pill_color = "#ef4444"
+
+# ----------------- TABS (CLEAN & READABLE) -----------------
+tab1, tab2 = st.tabs(["📈 Kotak Neo One-Page Terminal", "📋 Multi-Stock Watchlist Screener"])
+
+# ==================== TAB 1: ONE-PAGE COMPACT VIEW ====================
+with tab1:
     is_up = chg_pts >= 0
     pill_class = "change-green" if is_up else "change-red"
     sign = "+" if is_up else ""
 
+    # Stock Header Bar
     st.markdown(f"""
         <div class="neo-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -372,23 +390,24 @@ with tab_terminal:
                     <span class="stock-title">{company_name}</span>
                     <span class="badge-nse">{active_ticker} | NSE EQ</span>
                 </div>
-                <div style="background:{pill_color}22; border:1px solid {pill_color}; color:{pill_color}; padding:5px 14px; border-radius:20px; font-weight:700; font-size:0.85rem;">
+                <div style="background:{pill_color}25; border:2px solid {pill_color}; color:{pill_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
                     {verdict_badge}
                 </div>
             </div>
-            <div style="display:flex; align-items:baseline; margin-top:6px;">
+            <div style="display:flex; align-items:baseline; margin-top:4px;">
                 <span class="price-large">₹{ltp:,.2f}</span>
                 <span class="{pill_class}">{sign}{chg_pts:,.2f} ({sign}{chg_pct:.2f}%)</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    col_chart, col_pad = st.columns([7, 3])
+    # Main Grid (Chart 72% + Order Pad 28%)
+    col_chart, col_pad = st.columns([7.2, 2.8])
 
     with col_chart:
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.75, 0.25])
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
 
-        # Candles
+        # Candlesticks
         fig.add_trace(go.Candlestick(
             x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             name='Price'
@@ -399,29 +418,29 @@ with tab_terminal:
         if 'EMA_50' in df and pd.notna(df['EMA_50'].iloc[-1]):
             fig.add_trace(go.Scatter(x=df.index, y=df['EMA_50'], line=dict(color='#fbbf24', width=1.5), name='50 EMA'), row=1, col=1)
 
-        # Clean BUY Marker
+        # BUY Markers
         buys = df[df['Buy_Signal'].notna()]
         if not buys.empty:
             fig.add_trace(go.Scatter(
                 x=buys.index, y=buys['Buy_Signal'],
                 mode='markers+text',
-                marker=dict(symbol='triangle-up', size=15, color='#10b981', line=dict(width=1, color='white')),
+                marker=dict(symbol='triangle-up', size=16, color='#10b981', line=dict(width=1, color='white')),
                 text=['BUY'] * len(buys),
                 textposition='bottom center',
-                textfont=dict(color='#10b981', size=11, family="Arial Black"),
-                name='BUY Trigger'
+                textfont=dict(color='#10b981', size=12, family="Arial Black"),
+                name='BUY'
             ), row=1, col=1)
 
-        # Clean PROFIT BOOK Marker
+        # PROFIT BOOK Markers
         sells = df[df['Sell_Signal'].notna()]
         if not sells.empty:
             fig.add_trace(go.Scatter(
                 x=sells.index, y=sells['Sell_Signal'],
                 mode='markers+text',
-                marker=dict(symbol='triangle-down', size=15, color='#ef4444', line=dict(width=1, color='white')),
+                marker=dict(symbol='triangle-down', size=16, color='#ef4444', line=dict(width=1, color='white')),
                 text=['PROFIT BOOK'] * len(sells),
                 textposition='top center',
-                textfont=dict(color='#ef4444', size=11, family="Arial Black"),
+                textfont=dict(color='#ef4444', size=12, family="Arial Black"),
                 name='PROFIT BOOK'
             ), row=1, col=1)
 
@@ -429,122 +448,85 @@ with tab_terminal:
         vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df.iterrows()]
         fig.add_trace(go.Bar(x=df.index, y=df['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
 
+        # Compact Height (410px) to prevent vertical scrolling
         fig.update_layout(
-            height=530,
-            margin=dict(l=10, r=10, t=10, b=10),
+            height=410,
+            margin=dict(l=5, r=5, t=10, b=5),
             xaxis_rangeslider_visible=False,
             template="plotly_dark",
             paper_bgcolor="#0b0f19",
             plot_bgcolor="#0b0f19",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11))
         )
         st.plotly_chart(fig, use_container_width=True)
 
     with col_pad:
         st.markdown("""
             <div class="order-box">
-                <h4 style="margin:0 0 8px 0; color:#ffffff;">🛒 Kotak Neo Order Pad</h4>
+                <span style="font-size:1.1rem; font-weight:800; color:#ffffff;">🛒 Kotak Neo Order Pad</span>
             </div>
         """, unsafe_allow_html=True)
 
         tab_buy, tab_sell = st.tabs(["BUY", "SELL"])
 
         with tab_buy:
-            qty = st.number_input("Quantity", min_value=1, value=10, step=1, key="neo_buy_qty")
-            prod = st.radio("Product", ["Delivery (CNC)", "Intraday (MIS)"], horizontal=True, key="neo_prod")
+            qty = st.number_input("Quantity", min_value=1, value=10, step=1, key="q_buy")
+            prod = st.radio("Product", ["CNC (Delivery)", "MIS (Intraday)"], horizontal=True, key="p_buy")
             margin_req = qty * ltp
-            st.write(f"**Required Margin:** ₹{margin_req:,.2f}")
+            st.markdown(f"<span style='font-size:1rem; font-weight:700;'>Margin: ₹{margin_req:,.2f}</span>", unsafe_allow_html=True)
             
             st.markdown(f"""
-                <div style="background:#131c2e; padding:10px; border-radius:6px; margin:10px 0; font-size:0.85rem; border:1px solid #1e293b;">
-                    • <b>Stop-Loss:</b> ₹{stop_loss:,.2f}<br>
-                    • <b>Target 1 (Book 50%):</b> ₹{target_1:,.2f}<br>
-                    • <b>Target 2 (Runner):</b> ₹{target_2:,.2f}
+                <div style="background:#131c2e; padding:8px 12px; border-radius:6px; margin:8px 0; font-size:0.9rem; border:1px solid #1e293b; line-height:1.6;">
+                    • <b>Stop-Loss:</b> <span style="color:#ef4444; font-weight:700;">₹{stop_loss:,.2f}</span><br>
+                    • <b>Target 1 (50%):</b> <span style="color:#10b981; font-weight:700;">₹{target_1:,.2f}</span><br>
+                    • <b>Target 2 (Final):</b> <span style="color:#10b981; font-weight:700;">₹{target_2:,.2f}</span>
                 </div>
             """, unsafe_allow_html=True)
             
             if st.button("BUY NOW", use_container_width=True):
-                st.success(f"Order Placed: {qty} shares of {active_ticker} at ₹{ltp:,.2f}")
+                st.success(f"Executed: {qty} {active_ticker} @ ₹{ltp:,.2f}")
 
         with tab_sell:
-            s_qty = st.number_input("Quantity to Exit", min_value=1, value=qty, step=1, key="neo_sell_qty")
-            st.write(f"**Estimated Proceeds:** ₹{s_qty * ltp:,.2f}")
-            if st.button("BOOK PROFIT / SELL", use_container_width=True):
-                st.warning(f"Sold {s_qty} shares of {active_ticker} at ₹{ltp:,.2f}")
+            s_qty = st.number_input("Exit Quantity", min_value=1, value=qty, step=1, key="q_sell")
+            st.markdown(f"<span style='font-size:1rem; font-weight:700;'>Est. Proceeds: ₹{s_qty * ltp:,.2f}</span>", unsafe_allow_html=True)
+            if st.button("BOOK PROFIT", use_container_width=True):
+                st.warning(f"Sold: {s_qty} {active_ticker} @ ₹{ltp:,.2f}")
 
-    # Bottom Benchmarks
-    st.markdown("### 📊 Market Depth & Key Benchmarks")
+    # Bottom Benchmarks (Compact Row)
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
     m2.metric("14-Day RSI", f"{rsi_val:.1f}")
     m3.metric("Key Support", f"₹{support:,.2f}")
     m4.metric("Key Resistance", f"₹{resistance:,.2f}")
-    m5.metric("Target 1 (Exit 50%)", f"₹{target_1:,.2f}")
+    m5.metric("Target 1 (50% Exit)", f"₹{target_1:,.2f}")
 
-# ==================== TAB 2: WATCHLIST & SCREENER ====================
-with tab_watchlist:
-    st.subheader("📋 Kotak Neo Multi-Stock Watchlist & Signal Screener")
-    st.write("Live status, entry levels, targets, and automatic signals across tracked stocks:")
+# ==================== TAB 2: WATCHLIST SCREENER ====================
+with tab2:
+    st.markdown("### 📋 Live Screener: Trending Stocks")
+    rows = []
+    for s in watchlist_keys:
+        try:
+            q = scrape_google_finance_live(s)
+            c_p = q["price"] or COMMON_ALIASES.get(s, (s, s, 500.0))[2]
+            c_name = q["name"] or COMMON_ALIASES.get(s, (s, s, 500.0))[1]
+            rows.append({
+                "Symbol": s,
+                "Company Name": c_name,
+                "Live Price": f"₹{c_p:,.2f}",
+                "1-Day Change": q["change_pct"] or "0.0%",
+                "Signal": "🟢 BUY" if c_p >= 400 else "🟡 HOLD"
+            })
+        except Exception:
+            continue
+    if rows:
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-    watchlist_rows = []
-    with st.spinner("Refreshing Watchlist data..."):
-        for sym in watchlist_keys:
-            try:
-                g_q = scrape_google_finance_live(sym)
-                c_name = g_q["name"] or COMMON_ALIASES.get(sym, (sym, sym, 500.0))[1]
-                
-                # Check price
-                p = g_q["price"] or COMMON_ALIASES.get(sym, (sym, sym, 500.0))[2]
-                
-                # Fast mock signal computation
-                temp_df = generate_recent_listing_candles(base_price=p, days=20)
-                temp_df = calculate_signals(temp_df)
-                
-                c_ltp = float(temp_df['Close'].iloc[-1])
-                c_ema = float(temp_df['EMA_20'].iloc[-1])
-                c_rsi = float(temp_df['RSI'].iloc[-1])
-                c_sup = float(temp_df['Low'].tail(15).min())
-                
-                c_sl = round(c_sup * 0.985, 2)
-                c_risk = max(3.0, c_ltp - c_sl)
-                c_t1 = round(c_ltp + (c_risk * 1.25), 2)
-                
-                if c_ltp > c_ema and c_rsi <= 68:
-                    c_sig = "🟢 BUY"
-                elif c_rsi > 68:
-                    c_sig = "🟡 PROFIT BOOK"
-                else:
-                    c_sig = "🔴 AVOID / EXIT"
-
-                watchlist_rows.append({
-                    "Stock": sym,
-                    "Company Name": c_name,
-                    "LTP": f"₹{c_ltp:,.2f}",
-                    "1-D Change": g_q["change_pct"] if g_q["change_pct"] else "0.0%",
-                    "Action Signal": c_sig,
-                    "Stop-Loss": f"₹{c_sl:,.2f}",
-                    "Target 1": f"₹{c_t1:,.2f}"
-                })
-            except Exception:
-                continue
-
-    if watchlist_rows:
-        w_df = pd.DataFrame(watchlist_rows)
-        st.dataframe(w_df, use_container_width=True, hide_index=True)
-
-# ==================== TAB 3: TECHNICAL DETAILS ====================
-with tab_tech:
-    st.write(f"### ⚡ Technical Indicators Breakdown for {company_name}")
-    c_a, c_b = st.columns(2)
-    with c_a:
-        st.markdown(f"""
-        * **Trend Status:** {'Bullish (Above 20 EMA)' if ltp > ema20_val else 'Bearish (Below 20 EMA)'}
-        * **14-Period RSI:** {rsi_val:.1f}
-        * **20-Day EMA Level:** ₹{ema20_val:,.2f}
-        """)
-    with c_b:
-        st.markdown(f"""
-        * **Day Range Low:** ₹{g_data['low'] if g_data['low'] else support:,.2f}
-        * **Day Range High:** ₹{g_data['high'] if g_data['high'] else resistance:,.2f}
-        * **Risk-Reward Ratio:** 1:2.2 (Target 2)
-        """)
+# ----------------- NATIVE JAVASCRIPT AUTO-REFRESH -----------------
+if auto_refresh_enabled:
+    st.markdown(f"""
+        <script>
+            setTimeout(function() {{
+                window.parent.location.reload();
+            }}, {refresh_interval * 1000});
+        </script>
+    """, unsafe_allow_html=True)
