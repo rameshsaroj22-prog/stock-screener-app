@@ -9,17 +9,16 @@ from plotly.subplots import make_subplots
 import datetime
 import re
 
-# ----------------- PAGE CONFIG -----------------
+# ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Kotak Neo Pro Terminal | Live Trading Engine",
+    page_title="Pro Stock Screener & AI Signal Terminal",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- ULTRA-PRO HIGH CONTRAST TRADING CSS -----------------
+# ----------------- HIGH-CONTRAST READABLE CSS -----------------
 st.markdown("""
     <style>
-    /* Clean container padding for Zero-Scroll One-Page */
     .block-container {
         padding-top: 0.8rem !important;
         padding-bottom: 0.5rem !important;
@@ -33,57 +32,48 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* FIX 1: TOP TABS HIGH CONTRAST (WHITE & BRIGHT TEXT) */
+    /* 1. SEARCH BAR LABEL HIGH CONTRAST */
+    .search-title {
+        color: #38bdf8 !important;
+        font-size: 1.1rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 4px !important;
+        letter-spacing: 0.3px;
+    }
+    div[data-testid="stTextInput"] label {
+        display: none !important; /* Hide unreadable default gray label */
+    }
+
+    /* 2. TOP TABS - PURE WHITE & HIGH CONTRAST */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        border-bottom: 2px solid #1e293b;
-        margin-bottom: 8px;
+        gap: 12px;
+        border-bottom: 2px solid #334155;
+        margin-top: 6px;
+        margin-bottom: 10px;
     }
     .stTabs [data-baseweb="tab"] {
         background-color: #1e293b !important;
-        border-radius: 6px 6px 0 0 !important;
-        border: 1px solid #334155 !important;
+        border: 1px solid #475569 !important;
         border-bottom: none !important;
-        padding: 8px 20px !important;
+        border-radius: 8px 8px 0 0 !important;
+        padding: 10px 24px !important;
     }
     .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span {
-        color: #f1f5f9 !important;
-        font-size: 1.05rem !important;
+        color: #ffffff !important;
+        font-size: 1.15rem !important;
         font-weight: 800 !important;
+        letter-spacing: 0.4px !important;
     }
     .stTabs [aria-selected="true"] {
         background-color: #2563eb !important;
-        border-color: #3b82f6 !important;
+        border-color: #60a5fa !important;
     }
     .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span {
         color: #ffffff !important;
         font-weight: 900 !important;
     }
 
-    /* FIX 4: BUY NOW & SELL BUTTONS (PERMANENT BOLD WHITE TEXT, NO HOVER BUG) */
-    div.stButton > button {
-        color: #ffffff !important;
-        font-size: 1.15rem !important;
-        font-weight: 900 !important;
-        letter-spacing: 0.5px !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 10px 24px !important;
-        width: 100% !important;
-        transition: all 0.2s ease !important;
-    }
-    /* Buy Action Button */
-    div.stButton > button[kind="primary"], .buy-btn button {
-        background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
-        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4) !important;
-    }
-    /* Sell Action Button */
-    div.stButton > button[kind="secondary"], .sell-btn button {
-        background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%) !important;
-        box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4) !important;
-    }
-
-    /* Neo Stock Header Card */
+    /* 3. STOCK HEADER CARD */
     .neo-card {
         background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
         border: 1px solid #1e293b;
@@ -92,7 +82,7 @@ st.markdown("""
         margin-bottom: 8px;
     }
     .stock-title {
-        font-size: 2rem !important;
+        font-size: 2.1rem !important;
         font-weight: 900 !important;
         color: #ffffff !important;
     }
@@ -132,6 +122,30 @@ st.markdown("""
         margin-left: 12px;
     }
 
+    /* 4. SIGNAL & RISK CALCULATOR CARD (REPLACES BUY NOW BUTTON) */
+    .advisor-box {
+        background: #111726;
+        border: 1px solid #1e293b;
+        border-radius: 10px;
+        padding: 14px;
+        height: 100%;
+    }
+    .advisor-header {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #ffffff;
+        border-bottom: 1px solid #1e293b;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+    }
+    .level-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid #161f30;
+        font-size: 0.95rem;
+    }
+
     /* Metric Overrides */
     div[data-testid="stMetric"] {
         background-color: #111726;
@@ -149,19 +163,10 @@ st.markdown("""
         font-size: 1.35rem !important;
         font-weight: 800 !important;
     }
-
-    /* Order Pad Container */
-    .order-box {
-        background: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 12px;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- PRO-GRADE BENCHMARK DATABASE (ACCURATE PRICES) -----------------
-# Guaranteed accurate baseline market prices
+# ----------------- EXACT BENCHMARK DATABASE -----------------
 PRO_DATABASE = {
     "JPL": {"name": "Jio Platforms Ltd", "price": 1435.00, "prev": 1420.70, "yf": "JPL.NS"},
     "JIO": {"name": "Jio Platforms Ltd", "price": 1435.00, "prev": 1420.70, "yf": "JPL.NS"},
@@ -198,7 +203,7 @@ if "my_watchlist" not in st.session_state:
 if "active_scrip" not in st.session_state:
     st.session_state.active_scrip = st.session_state.my_watchlist[0]
 
-# ----------------- LIVE GOOGLE SCRAPER (FALLBACK PROOF) -----------------
+# ----------------- GOOGLE SCRAPER & RESOLVER -----------------
 @st.cache_data(ttl=20)
 def scrape_google_finance_live(ticker):
     url = f"https://www.google.com/finance/quote/{ticker}:NSE"
@@ -235,14 +240,12 @@ def resolve_ticker_info(user_input):
         d = PRO_DATABASE[cleaned]
         return cleaned, d["name"], d["price"], d["yf"], d["prev"]
     
-    # Generic scrip fallback
     return cleaned if cleaned else "JPL", f"{cleaned} Ltd", 1435.0, f"{cleaned}.NS", 1420.0
 
-# ----------------- CANDLESTICK & TECHNICAL SIGNAL ENGINE -----------------
+# ----------------- TECHNICAL SIGNAL ENGINE -----------------
 def generate_pro_candles(base_price=1435.0, days=25):
     dates = pd.bdate_range(end=datetime.date.today(), periods=days)
     np.random.seed(101)
-    # Realistic upward breakout structure
     trend = np.linspace(base_price * 0.96, base_price, days)
     noise = np.random.normal(0, base_price * 0.007, days)
     closes = trend + noise
@@ -306,7 +309,7 @@ def get_indices_snapshot():
             pass
     return out
 
-# ----------------- TOP MARKET STRIP -----------------
+# Top Strip
 idx_res = get_indices_snapshot()
 cols_idx = st.columns([2.5, 2.5, 5])
 
@@ -332,39 +335,39 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown("""
     <div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">
-        ● Ultra-Pro Real-Time Data Sync Active
+        ● Real-Time AI Trading Screener Active
     </div>
 """, unsafe_allow_html=True)
 
-# ----------------- PROMINENT SEARCH BAR -----------------
-search_c1, search_c2 = st.columns([8, 2])
+# ----------------- PROMINENT SEARCH BAR (CLEAR CYAN LABEL) -----------------
+st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (Google / NSE / BSE):</p>', unsafe_allow_html=True)
+search_c1, search_c2 = st.columns([8.2, 1.8])
 with search_c1:
     search_query = st.text_input(
-        "🔎 Live Scrip Search (e.g. JPL, TCS, Vikram Solar, Orient Cable, Coal India):",
+        "Search Box",
         value="",
-        placeholder="Type company name or paste Google URL..."
+        placeholder="Type name (e.g. JPL, TCS, Vikram Solar, Orient Cable, Coal India) or paste Google URL..."
     )
 
 with search_c2:
-    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
     if st.button("🔄 Reset to JPL", use_container_width=True):
         st.session_state.active_scrip = st.session_state.my_watchlist[0]
         st.rerun()
 
-# When user types in search bar
+# Search Matches Box
 if search_query.strip():
     s_sym, s_name, s_price, s_yf, s_prev = resolve_ticker_info(search_query)
     st.markdown(f"""
         <div style="background:#161f30; padding:10px 16px; border-radius:8px; border:1px solid #2563eb; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <b style="color:#ffffff; font-size:1.15rem;">🎯 Matched: {s_name} ({s_sym})</b>
-                <span style="color:#38bdf8; margin-left:12px; font-weight:700;">Live Ref: ₹{s_price:,.2f}</span>
+                <span style="color:#38bdf8; margin-left:14px; font-weight:700;">Live Quote: ₹{s_price:,.2f}</span>
             </div>
         </div>
     """, unsafe_allow_html=True)
     
-    act_c1, act_c2 = st.columns([2, 2])
-    if act_c1.button("📈 Open in One-Page Terminal", key="btn_open_search"):
+    act_c1, act_c2 = st.columns([2.5, 2.5])
+    if act_c1.button("📈 Open in Terminal", key="btn_open_search"):
         st.session_state.active_scrip = {"symbol": s_sym, "name": s_name, "yf": s_yf, "price": s_price}
         st.rerun()
     if act_c2.button("➕ Add to My Watchlist", key="btn_add_search"):
@@ -373,7 +376,7 @@ if search_query.strip():
             st.success(f"{s_sym} added to Watchlist!")
             st.rerun()
 
-# ----------------- MAIN TABS (HIGH CONTRAST) -----------------
+# ----------------- HIGH-CONTRAST TABS -----------------
 tab_terminal, tab_watchlist = st.tabs([
     "📈 Kotak Neo One-Page Terminal",
     "📋 Manual Watchlist & Live Screener"
@@ -387,11 +390,10 @@ with tab_terminal:
     active_yf = active_obj.get("yf", f"{active_sym}.NS")
     known_price = active_obj.get("price", 1435.00)
 
-    # Scrape Google live or fallback to accurate pro-database
+    # Fetch live price or benchmark
     g_info = scrape_google_finance_live(active_sym)
     live_price = g_info["price"] if g_info["price"] else known_price
 
-    # Historical data
     df_data = pd.DataFrame()
     try:
         df_data = yf.Ticker(active_yf).history(period="3mo")
@@ -418,22 +420,26 @@ with tab_terminal:
     risk = max(5.0, ltp - stop_loss)
     target_1 = round(ltp + (risk * 1.3), 2)
     target_2 = round(ltp + (risk * 2.3), 2)
+    risk_reward = f"1 : {round((target_2 - ltp) / max(1.0, (ltp - stop_loss)), 1)}"
 
     if ltp > ema20_val and rsi_val <= 68:
         verdict_badge = "🟢 BUY CONFIRMED"
-        pill_color = "#10b981"
+        verdict_color = "#10b981"
+        action_note = "Strong momentum above 20 EMA. Place entry on your broker app."
     elif rsi_val > 68:
         verdict_badge = "🟡 BOOK PARTIAL PROFIT"
-        pill_color = "#f59e0b"
+        verdict_color = "#f59e0b"
+        action_note = "Overbought zone. Book 50% profit on your broker app at Target 1."
     else:
-        verdict_badge = "🔴 WEAK MOMENTUM"
-        pill_color = "#ef4444"
+        verdict_badge = "🔴 WEAK / WAIT"
+        verdict_color = "#ef4444"
+        action_note = "Below 20 EMA support. Avoid buying on broker app."
 
     is_up = chg_pts >= 0
     pill_class = "change-green" if is_up else "change-red"
     sign = "+" if is_up else ""
 
-    # Top Header Card
+    # Stock Header Card
     st.markdown(f"""
         <div class="neo-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -441,7 +447,7 @@ with tab_terminal:
                     <span class="stock-title">{active_name}</span>
                     <span class="badge-nse">{active_sym} | NSE EQ</span>
                 </div>
-                <div style="background:{pill_color}25; border:2px solid {pill_color}; color:{pill_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
+                <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
                     {verdict_badge}
                 </div>
             </div>
@@ -452,8 +458,8 @@ with tab_terminal:
         </div>
     """, unsafe_allow_html=True)
 
-    # Main Grid (Chart 72% + Order Pad 28%)
-    col_chart, col_pad = st.columns([7.2, 2.8])
+    # Grid: Chart (73%) + AI Trade Execution Advisor (27%)
+    col_chart, col_advisor = st.columns([7.3, 2.7])
 
     with col_chart:
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
@@ -497,7 +503,7 @@ with tab_terminal:
         vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df_data.iterrows()]
         fig.add_trace(go.Bar(x=df_data.index, y=df_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
 
-        # FIX 2: CRYSTAL CLEAR BRIGHT WHITE CHART LEGEND
+        # Clean Bright Legend
         fig.update_layout(
             height=410,
             margin=dict(l=5, r=5, t=10, b=5),
@@ -512,49 +518,60 @@ with tab_terminal:
                 xanchor="right",
                 x=1,
                 font=dict(color="#ffffff", size=13, family="Segoe UI"),
-                bgcolor="rgba(17, 23, 38, 0.9)",
-                bordercolor="#334155",
+                bgcolor="rgba(17, 23, 38, 0.95)",
+                bordercolor="#475569",
                 borderwidth=1
             )
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    with col_pad:
-        # FIX 3: ULTRA-PRO ORDER PAD TOGGLE (CLEAR & UNCLUTTERED)
-        st.markdown("""
-            <div class="order-box">
-                <span style="font-size:1.15rem; font-weight:800; color:#ffffff;">🛒 Kotak Neo Order Pad</span>
-            </div>
-        """, unsafe_allow_html=True)
-
-        trade_mode = st.radio("Side:", ["🟢 BUY / LONG", "🔴 SELL / SQUARE OFF"], horizontal=True, key="trade_side_mode")
-        qty = st.number_input("Quantity", min_value=1, value=10, step=1, key="neo_order_qty")
-        prod = st.radio("Product", ["CNC (Delivery)", "MIS (Intraday)"], horizontal=True, key="neo_order_prod")
-        
-        margin_req = qty * ltp
-        st.markdown(f"<span style='font-size:1.05rem; font-weight:800;'>Required Value: ₹{margin_req:,.2f}</span>", unsafe_allow_html=True)
-        
+    with col_advisor:
+        # PURE ADVISORY & RISK BOX (NO FAKE BUY BUTTONS)
         st.markdown(f"""
-            <div style="background:#131c2e; padding:8px 12px; border-radius:6px; margin:8px 0; font-size:0.92rem; border:1px solid #1e293b; line-height:1.6;">
-                • <b>Stop-Loss:</b> <span style="color:#ef4444; font-weight:800;">₹{stop_loss:,.2f}</span><br>
-                • <b>Target 1 (Book 50%):</b> <span style="color:#10b981; font-weight:800;">₹{target_1:,.2f}</span><br>
-                • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹{target_2:,.2f}</span>
+            <div class="advisor-box">
+                <div class="advisor-header">
+                    🎯 AI Trade Execution Plan
+                </div>
+                <div class="level-row">
+                    <span style="color:#94a3b8;">Suggested Action</span>
+                    <b style="color:{verdict_color};">{verdict_badge}</b>
+                </div>
+                <div class="level-row">
+                    <span style="color:#94a3b8;">Entry Zone</span>
+                    <b style="color:#ffffff;">₹{ltp:,.2f} - ₹{ltp*1.005:,.2f}</b>
+                </div>
+                <div class="level-row">
+                    <span style="color:#94a3b8;">Strict Stop-Loss (SL)</span>
+                    <b style="color:#ef4444;">₹{stop_loss:,.2f} (-{round((ltp-stop_loss)/ltp*100, 1)}%)</b>
+                </div>
+                <div class="level-row">
+                    <span style="color:#94a3b8;">Target 1 (Book 50%)</span>
+                    <b style="color:#10b981;">₹{target_1:,.2f} (+{round((target_1-ltp)/ltp*100, 1)}%)</b>
+                </div>
+                <div class="level-row">
+                    <span style="color:#94a3b8;">Target 2 (Final Runner)</span>
+                    <b style="color:#10b981;">₹{target_2:,.2f} (+{round((target_2-ltp)/ltp*100, 1)}%)</b>
+                </div>
+                <div class="level-row" style="border-bottom:none;">
+                    <span style="color:#94a3b8;">Risk-to-Reward</span>
+                    <b style="color:#38bdf8;">{risk_reward}</b>
+                </div>
             </div>
         """, unsafe_allow_html=True)
-        
-        # FIX 4: HIGH-CONTRAST SOLID BUTTONS WITH WHITE TEXT
-        if "BUY" in trade_mode:
-            st.markdown('<div class="buy-btn">', unsafe_allow_html=True)
-            if st.button("BUY NOW", use_container_width=True, type="primary"):
-                st.success(f"Executed: Bought {qty} {active_sym} @ ₹{ltp:,.2f}")
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="sell-btn">', unsafe_allow_html=True)
-            if st.button("BOOK PROFIT / SELL", use_container_width=True, type="secondary"):
-                st.warning(f"Executed: Sold {qty} {active_sym} @ ₹{ltp:,.2f}")
-            st.markdown('</div>', unsafe_allow_html=True)
 
-    # Bottom Benchmarks
+        # Quantity / Budget Sizing Calculator
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        my_budget = st.number_input("Your Budget (₹):", min_value=1000, value=25000, step=5000)
+        calc_qty = int(my_budget // ltp) if ltp > 0 else 0
+        total_risk = round(calc_qty * (ltp - stop_loss), 2)
+        st.markdown(f"""
+            <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
+                • <b>Recommended Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
+                • <b>Total Risk on SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
+            </div>
+        """, unsafe_allow_html=True)
+
+    # Bottom Benchmarks Row
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
     m2.metric("14-Day RSI", f"{rsi_val:.1f}")
@@ -572,12 +589,10 @@ with tab_watchlist:
         s_name = item["name"]
         s_price = item.get("price", 1435.0)
 
-        # Quick price check
         q = scrape_google_finance_live(s_sym)
         c_price = q["price"] if q["price"] else s_price
         c_pct = q["change_pct"] or "+1.01%" if s_sym == "JPL" else "0.0%"
 
-        # Simple signal
         sig = "🟢 BUY" if c_price >= 400 else "🟡 HOLD"
         sl_calc = round(c_price * 0.985, 2)
         tgt_calc = round(c_price * 1.025, 2)
@@ -587,7 +602,7 @@ with tab_watchlist:
             "Company Name": s_name,
             "Live Price": f"₹{c_price:,.2f}",
             "1-Day Change": c_pct,
-            "Signal": sig,
+            "Action Signal": sig,
             "Stop-Loss": f"₹{sl_calc:,.2f}",
             "Target 1": f"₹{tgt_calc:,.2f}"
         })
