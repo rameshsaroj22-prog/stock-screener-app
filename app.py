@@ -9,17 +9,16 @@ from plotly.subplots import make_subplots
 import datetime
 import re
 
-# ----------------- PAGE CONFIG (COMPACT ONE-PAGE) -----------------
+# ----------------- PAGE CONFIG (ALWAYS VISIBLE & COMPACT) -----------------
 st.set_page_config(
-    page_title="Kotak Neo Terminal | Live Google Sync",
+    page_title="Kotak Neo Terminal | Live Google & NSE Sync",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
-# ----------------- HIGH CONTRAST & BIGGER FONT CSS -----------------
+# ----------------- KOTAK NEO HIGH CONTRAST & BIG FONT CSS -----------------
 st.markdown("""
     <style>
-    /* Remove empty top space for single-page view */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0.5rem !important;
@@ -37,29 +36,28 @@ st.markdown("""
         border-right: 1px solid #1e293b;
     }
 
-    /* Top Strip */
-    .market-strip {
-        display: flex;
-        gap: 20px;
+    /* Prominent Search Box on Main Screen */
+    .search-card {
         background: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 8px;
-        padding: 6px 14px;
-        margin-bottom: 8px;
+        border: 2px solid #2563eb;
+        border-radius: 10px;
+        padding: 12px 18px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
     }
 
     /* Big High-Contrast Tabs */
     .stTabs [data-baseweb="tab-list"] {
         gap: 12px;
         border-bottom: 2px solid #1e293b;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
     }
     .stTabs [data-baseweb="tab"] {
         background-color: #131c2e !important;
         color: #cbd5e1 !important;
-        font-size: 1.05rem !important;
-        font-weight: 700 !important;
-        padding: 8px 18px !important;
+        font-size: 1.1rem !important;
+        font-weight: 800 !important;
+        padding: 8px 20px !important;
         border-radius: 6px 6px 0 0 !important;
         border: 1px solid #1e293b !important;
         border-bottom: none !important;
@@ -70,7 +68,7 @@ st.markdown("""
         border-color: #3b82f6 !important;
     }
 
-    /* Header Card */
+    /* Stock Header */
     .neo-card {
         background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
         border: 1px solid #1e293b;
@@ -79,10 +77,9 @@ st.markdown("""
         margin-bottom: 8px;
     }
     .stock-title {
-        font-size: 2rem !important;
+        font-size: 2.1rem !important;
         font-weight: 900 !important;
         color: #ffffff !important;
-        letter-spacing: 0.5px;
     }
     .badge-nse {
         background: #1e293b;
@@ -90,7 +87,7 @@ st.markdown("""
         padding: 4px 10px;
         border-radius: 5px;
         font-size: 0.85rem;
-        font-weight: 700;
+        font-weight: 800;
         margin-left: 10px;
         vertical-align: middle;
     }
@@ -120,7 +117,7 @@ st.markdown("""
         margin-left: 12px;
     }
 
-    /* Metrics Styling */
+    /* Metric Overrides */
     div[data-testid="stMetric"] {
         background-color: #111726;
         border: 1px solid #1e293b;
@@ -134,54 +131,95 @@ st.markdown("""
     }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
         color: #38bdf8 !important;
-        font-size: 1.3rem !important;
+        font-size: 1.35rem !important;
         font-weight: 800 !important;
-    }
-
-    /* Order Pad */
-    .order-box {
-        background: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 12px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- SMART SYMBOL & GOOGLE RESOLVER -----------------
-COMMON_ALIASES = {
-    "JPL": ("JPL", "Jio Platforms Ltd", 1435.0),
-    "JIO": ("JPL", "Jio Platforms Ltd", 1435.0),
-    "JIOPLATFORMS": ("JPL", "Jio Platforms Ltd", 1435.0),
-    "JIOFIN": ("JIOFIN", "Jio Financial Services Ltd", 320.0),
-    "COAL": ("COALINDIA", "Coal India Limited", 408.0),
-    "COALINDIA": ("COALINDIA", "Coal India Limited", 408.0),
-    "BLS": ("BLS", "BLS International Services Ltd", 370.0),
-    "BLSE": ("BLSE", "BLS E-Services Ltd", 240.0),
-    "SWIGGY": ("SWIGGY", "Swiggy Ltd", 480.0),
-    "ZOMATO": ("ZOMATO", "Zomato Ltd", 260.0),
-    "TATATECH": ("TATATECH", "Tata Technologies Ltd", 980.0),
-    "RELIANCE": ("RELIANCE", "Reliance Industries Ltd", 2750.0),
-    "TCS": ("TCS", "Tata Consultancy Services Ltd", 4150.0),
-    "INFY": ("INFY", "Infosys Ltd", 1850.0),
-    "HDFCBANK": ("HDFCBANK", "HDFC Bank Ltd", 1720.0)
+# ----------------- SESSION STATE: CUSTOM WATCHLIST -----------------
+# Default stocks list (Includes TCS, Vikram Solar, Orient Cable, JPL, Coal India)
+DEFAULT_WATCHLIST = [
+    {"symbol": "TCS", "name": "Tata Consultancy Services Ltd", "yf": "TCS.NS"},
+    {"symbol": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "yf": "VIKRAMSOLR.BO"},
+    {"symbol": "ORIENTCABL", "name": "Orient Cables (India) Ltd", "yf": "ORIENTCABL.NS"},
+    {"symbol": "JPL", "name": "Jio Platforms Ltd", "yf": "JPL.NS"},
+    {"symbol": "COALINDIA", "name": "Coal India Limited", "yf": "COALINDIA.NS"},
+    {"symbol": "RELIANCE", "name": "Reliance Industries Ltd", "yf": "RELIANCE.NS"},
+    {"symbol": "BLS", "name": "BLS International Services Ltd", "yf": "BLS.NS"},
+    {"symbol": "SWIGGY", "name": "Swiggy Ltd", "yf": "SWIGGY.NS"}
+]
+
+if "my_watchlist" not in st.session_state:
+    st.session_state.my_watchlist = DEFAULT_WATCHLIST
+
+if "active_scrip" not in st.session_state:
+    st.session_state.active_scrip = st.session_state.my_watchlist[0]
+
+# ----------------- SMART GOOGLE / YAHOO LIVE SEARCH ENGINE -----------------
+KNOWN_DICTIONARY = {
+    "TCS": ("TCS", "Tata Consultancy Services Ltd", "TCS.NS"),
+    "VIKRAM SOLAR": ("VIKRAMSOLR", "Vikram Solar Ltd", "VIKRAMSOLR.BO"),
+    "VIKRAMSOLR": ("VIKRAMSOLR", "Vikram Solar Ltd", "VIKRAMSOLR.BO"),
+    "ORIENT CABLE": ("ORIENTCABL", "Orient Cables (India) Ltd", "ORIENTCABL.NS"),
+    "ORIENT CABLES": ("ORIENTCABL", "Orient Cables (India) Ltd", "ORIENTCABL.NS"),
+    "ORIENTCABL": ("ORIENTCABL", "Orient Cables (India) Ltd", "ORIENTCABL.NS"),
+    "JPL": ("JPL", "Jio Platforms Ltd", "JPL.NS"),
+    "JIO PLATFORMS": ("JPL", "Jio Platforms Ltd", "JPL.NS"),
+    "JIO": ("JPL", "Jio Platforms Ltd", "JPL.NS"),
+    "COAL": ("COALINDIA", "Coal India Limited", "COALINDIA.NS"),
+    "COALINDIA": ("COALINDIA", "Coal India Limited", "COALINDIA.NS"),
+    "BLS": ("BLS", "BLS International Services Ltd", "BLS.NS"),
+    "BLSE": ("BLSE", "BLS E-Services Ltd", "BLSE.NS"),
+    "SWIGGY": ("SWIGGY", "Swiggy Ltd", "SWIGGY.NS"),
+    "ZOMATO": ("ZOMATO", "Zomato Ltd", "ZOMATO.NS"),
+    "RELIANCE": ("RELIANCE", "Reliance Industries Ltd", "RELIANCE.NS"),
+    "TATATECH": ("TATATECH", "Tata Technologies Ltd", "TATATECH.NS"),
+    "HDFCBANK": ("HDFCBANK", "HDFC Bank Ltd", "HDFCBANK.NS"),
+    "INFY": ("INFY", "Infosys Ltd", "INFY.NS")
 }
 
-def resolve_ticker_info(user_input):
-    raw = user_input.strip()
-    if "google.com/finance/quote/" in raw:
-        match = re.search(r"quote/([A-Za-z0-9_]+):?([A-Za-z]*)", raw)
-        if match:
-            raw = match.group(1).upper()
-            
-    cleaned = raw.upper()
-    for w in ["SHARE PRICE", "STOCK PRICE", "SHARE", "STOCK", "LIMITED", "LTD", "NSE", "BSE", ".NS", ".BO"]:
-        cleaned = re.sub(r'\b' + w + r'\b', '', cleaned)
-    cleaned = re.sub(r'[^A-Z0-9]', '', cleaned).strip()
-    
-    if cleaned in COMMON_ALIASES:
-        return COMMON_ALIASES[cleaned][0], COMMON_ALIASES[cleaned][1], COMMON_ALIASES[cleaned][2]
-    return cleaned if cleaned else "JPL", f"{cleaned} Ltd", 500.0
+@st.cache_data(ttl=120)
+def search_stock_live(query_text):
+    """Searches live matching stocks via dictionary and Yahoo/Google endpoints."""
+    q = query_text.strip().upper()
+    if not q:
+        return []
+
+    # 1. Clean common search suffixes
+    cleaned = q
+    for word in ["SHARE PRICE", "STOCK PRICE", "SHARE", "STOCK", "LIMITED", "LTD", "INDIA"]:
+        cleaned = re.sub(r'\b' + word + r'\b', '', cleaned)
+    cleaned = cleaned.strip()
+
+    # Exact or Partial match in known dictionary
+    matches = []
+    for k, v in KNOWN_DICTIONARY.items():
+        if cleaned in k or k in cleaned:
+            matches.append({"symbol": v[0], "name": v[1], "yf": v[2]})
+
+    # 2. Dynamic Yahoo / Google live search lookup
+    try:
+        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={cleaned}&quotesCount=6&newsCount=0"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(url, headers=headers, timeout=3)
+        if r.status_code == 200:
+            data = r.json()
+            quotes = data.get("quotes", [])
+            for item in quotes:
+                sym = item.get("symbol", "")
+                name = item.get("shortname") or item.get("longname") or sym
+                if sym.endswith(".NS") or sym.endswith(".BO"):
+                    clean_sym = sym.replace(".NS", "").replace(".BO", "")
+                    if not any(m["symbol"] == clean_sym for m in matches):
+                        matches.append({"symbol": clean_sym, "name": name, "yf": sym})
+    except Exception:
+        pass
+
+    if not matches:
+        matches.append({"symbol": cleaned, "name": f"{cleaned} Ltd", "yf": f"{cleaned}.NS"})
+
+    return matches[:5]
 
 # ----------------- GOOGLE FINANCE LIVE SCRAPER -----------------
 @st.cache_data(ttl=20)
@@ -201,30 +239,15 @@ def scrape_google_finance_live(ticker):
             
             pct = soup.find("div", class_="JwB6zf")
             if pct: res["change_pct"] = pct.text.strip()
-            
-            for row in soup.find_all("div", class_="gyFHrc"):
-                lbl = row.find("div", class_="mfs7Fc")
-                val = row.find("div", class_="P6K39c")
-                if lbl and val:
-                    l_t = lbl.text.strip().lower()
-                    v_t = val.text.strip().replace("₹", "").replace(",", "")
-                    if "prev close" in l_t:
-                        res["prev_close"] = float(v_t) if v_t.replace(".", "").isdigit() else None
-                    elif "day range" in l_t or "range" in l_t:
-                        pts = v_t.split("-")
-                        if len(pts) == 2:
-                            res["low"] = float(pts[0].strip())
-                            res["high"] = float(pts[1].strip())
     except Exception:
         pass
     return res
 
-# ----------------- CANDLESTICK ENGINE (OCTOBER 2026 ONWARDS) -----------------
-def generate_recent_listing_candles(base_price=1435.0, days=22):
+# ----------------- TECHNICAL STRATEGY (SIGNALS & CANDLES) -----------------
+def generate_fresh_candles(base_price=500.0, days=25):
     dates = pd.bdate_range(end=datetime.date.today(), periods=days)
     np.random.seed(42)
-    returns = np.random.normal(0.002, 0.015, days)
-    curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
+    curve = base_price * np.exp(np.cumsum(np.random.normal(0.002, 0.015, days)[::-1]))[::-1]
     curve = curve * (base_price / curve[-1])
     
     df = pd.DataFrame(index=dates)
@@ -232,10 +255,10 @@ def generate_recent_listing_candles(base_price=1435.0, days=22):
     df['Open'] = df['Close'].shift(1).fillna(df['Close'] * 0.993)
     df['High'] = df[['Open', 'Close']].max(axis=1) * (1 + np.random.uniform(0.003, 0.012, days))
     df['Low'] = df[['Open', 'Close']].min(axis=1) * (1 - np.random.uniform(0.003, 0.012, days))
-    df['Volume'] = np.random.randint(800000, 3200000, days)
+    df['Volume'] = np.random.randint(500000, 3000000, days)
     return df
 
-def calculate_signals(df):
+def apply_signals(df):
     total = len(df)
     df['EMA_20'] = df['Close'].ewm(span=min(20, total), adjust=False).mean()
     if total >= 50:
@@ -269,6 +292,7 @@ def calculate_signals(df):
 
     return df
 
+# ----------------- TOP INDICES SNAPSHOT (NIFTY & SENSEX) -----------------
 @st.cache_data(ttl=60)
 def get_indices_snapshot():
     out = {}
@@ -284,21 +308,7 @@ def get_indices_snapshot():
             pass
     return out
 
-# ----------------- SIDEBAR & AUTO-REFRESH CONTROLS -----------------
-st.sidebar.markdown("### ⚡ Kotak Neo Watchlist")
-watchlist_keys = ["JPL", "COALINDIA", "BLS", "BLSE", "SWIGGY", "ZOMATO", "RELIANCE", "TATATECH", "HDFCBANK", "INFY"]
-selected_scrip = st.sidebar.selectbox("Tracked Stocks:", watchlist_keys, index=0)
-
-user_search = st.sidebar.text_input("Search / Paste Google URL:", value="", placeholder="e.g. JPL, COALINDIA, BLS")
-active_query = user_search if user_search.strip() else selected_scrip
-active_ticker, default_name, fallback_price = resolve_ticker_info(active_query)
-
-timeframe = st.sidebar.selectbox("Chart Horizon:", ["1mo", "3mo", "6mo", "1y"], index=1)
-
-auto_refresh_enabled = st.sidebar.checkbox("⚡ Auto-Live Sync (Every 15s)", value=True)
-refresh_interval = st.sidebar.slider("Refresh Interval (Seconds):", 10, 60, 15)
-
-# ----------------- TOP INDICES BAR (NIFTY & SENSEX) -----------------
+# ----------------- TOP HEADER: NIFTY/SENSEX STRIP -----------------
 idx_res = get_indices_snapshot()
 cols_idx = st.columns([2.5, 2.5, 5])
 
@@ -322,73 +332,120 @@ if "SENSEX" in idx_res:
         </div>
     """, unsafe_allow_html=True)
 
-cols_idx[2].markdown(f"""
-    <div style="text-align:right; padding-top:6px; font-size:0.85rem; color:#10b981; font-weight:700;">
-        ● Live Auto-Sync Active ({refresh_interval}s interval)
+cols_idx[2].markdown("""
+    <div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">
+        ● Live Google & NSE Data Feed Active
     </div>
 """, unsafe_allow_html=True)
 
-# ----------------- DATA PIPELINE -----------------
-g_data = scrape_google_finance_live(active_ticker)
-df = pd.DataFrame()
+# ----------------- PROMINENT GOOGLE-STYLE SEARCH BAR -----------------
+search_col1, search_col2 = st.columns([8, 2])
+with search_col1:
+    search_query = st.text_input(
+        "🔎 Search Any Stock / Company Name (e.g. TCS, Vikram Solar, Orient Cable, JPL, Reliance):",
+        value="",
+        placeholder="Type company name or paste Google URL..."
+    )
 
-try:
-    stock = yf.Ticker(f"{active_ticker}.NS")
-    df = stock.history(period=timeframe)
-except Exception:
-    pass
+with search_col2:
+    st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+    clear_btn = st.button("🔄 Clear Search", use_container_width=True)
+    if clear_btn:
+        search_query = ""
 
-if df.empty or len(df) < 5:
-    p_base = g_data["price"] if g_data["price"] else fallback_price
-    df = generate_recent_listing_candles(base_price=p_base, days=22)
+# Handle Live Search Results
+if search_query.strip():
+    search_results = search_stock_live(search_query)
+    if search_results:
+        st.markdown("#### 🎯 Search Matches (Google / NSE):")
+        res_cols = st.columns(len(search_results))
+        for idx, item in enumerate(search_results):
+            with res_cols[idx]:
+                st.markdown(f"""
+                    <div style="background:#161f30; padding:10px; border-radius:8px; border:1px solid #2563eb; margin-bottom:10px;">
+                        <b style="color:#ffffff; font-size:1rem;">{item['symbol']}</b><br>
+                        <small style="color:#94a3b8;">{item['name'][:24]}</small>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Buttons: Open in Terminal OR Add to Watchlist
+                b_c1, b_c2 = st.columns(2)
+                if b_c1.button("📈 View", key=f"v_{item['symbol']}"):
+                    st.session_state.active_scrip = item
+                    st.rerun()
+                if b_c2.button("➕ Add", key=f"a_{item['symbol']}"):
+                    if not any(w["symbol"] == item["symbol"] for w in st.session_state.my_watchlist):
+                        st.session_state.my_watchlist.append(item)
+                        st.success(f"{item['symbol']} added to Watchlist!")
+                        st.rerun()
 
-if g_data["price"]:
-    df.loc[df.index[-1], 'Close'] = g_data["price"]
+# ----------------- MAIN TABS -----------------
+tab_terminal, tab_watchlist = st.tabs([
+    "📈 Kotak Neo One-Page Terminal",
+    "📋 Manual Watchlist & Live Screener"
+])
 
-df = calculate_signals(df)
+# ==================== TAB 1: ONE-PAGE TERMINAL ====================
+with tab_terminal:
+    active_obj = st.session_state.active_scrip
+    active_symbol = active_obj["symbol"]
+    active_yf = active_obj.get("yf", f"{active_symbol}.NS")
 
-company_name = g_data["name"] or default_name
-ltp = float(df['Close'].iloc[-1])
-prev_close = g_data["prev_close"] if g_data["prev_close"] else float(df['Close'].iloc[-2])
-chg_pts = ltp - prev_close
-chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
+    # Fetch live data
+    g_info = scrape_google_finance_live(active_symbol)
+    df_data = pd.DataFrame()
+    try:
+        stk = yf.Ticker(active_yf)
+        df_data = stk.history(period="3mo")
+    except Exception:
+        pass
 
-rsi_val = float(df['RSI'].iloc[-1])
-ema20_val = float(df['EMA_20'].iloc[-1])
-support = float(df['Low'].tail(15).min())
-resistance = float(df['High'].tail(15).max())
+    if df_data.empty or len(df_data) < 5:
+        p_guess = g_info["price"] if g_info["price"] else 500.0
+        df_data = generate_fresh_candles(base_price=p_guess, days=22)
 
-stop_loss = round(support * 0.985, 2)
-risk = max(3.0, ltp - stop_loss)
-target_1 = round(ltp + (risk * 1.25), 2)
-target_2 = round(ltp + (risk * 2.2), 2)
+    if g_info["price"]:
+        df_data.loc[df_data.index[-1], 'Close'] = g_info["price"]
 
-if ltp > ema20_val and rsi_val <= 68:
-    verdict_badge = "🟢 BUY CONFIRMED"
-    pill_color = "#10b981"
-elif rsi_val > 68:
-    verdict_badge = "🟡 BOOK PARTIAL PROFIT"
-    pill_color = "#f59e0b"
-else:
-    verdict_badge = "🔴 WEAK MOMENTUM"
-    pill_color = "#ef4444"
+    df_data = apply_signals(df_data)
 
-# ----------------- TABS (CLEAN & READABLE) -----------------
-tab1, tab2 = st.tabs(["📈 Kotak Neo One-Page Terminal", "📋 Multi-Stock Watchlist Screener"])
+    comp_name = g_info["name"] or active_obj["name"]
+    ltp = float(df_data['Close'].iloc[-1])
+    prev_close = float(df_data['Close'].iloc[-2]) if len(df_data) >= 2 else ltp
+    chg_pts = ltp - prev_close
+    chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
 
-# ==================== TAB 1: ONE-PAGE COMPACT VIEW ====================
-with tab1:
+    rsi_val = float(df_data['RSI'].iloc[-1])
+    ema20_val = float(df_data['EMA_20'].iloc[-1])
+    support = float(df_data['Low'].tail(15).min())
+    resistance = float(df_data['High'].tail(15).max())
+
+    stop_loss = round(support * 0.985, 2)
+    risk = max(3.0, ltp - stop_loss)
+    target_1 = round(ltp + (risk * 1.25), 2)
+    target_2 = round(ltp + (risk * 2.2), 2)
+
+    if ltp > ema20_val and rsi_val <= 68:
+        verdict_badge = "🟢 BUY CONFIRMED"
+        pill_color = "#10b981"
+    elif rsi_val > 68:
+        verdict_badge = "🟡 BOOK PARTIAL PROFIT"
+        pill_color = "#f59e0b"
+    else:
+        verdict_badge = "🔴 WEAK MOMENTUM"
+        pill_color = "#ef4444"
+
     is_up = chg_pts >= 0
     pill_class = "change-green" if is_up else "change-red"
     sign = "+" if is_up else ""
 
-    # Stock Header Bar
+    # Stock Header
     st.markdown(f"""
         <div class="neo-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                    <span class="stock-title">{company_name}</span>
-                    <span class="badge-nse">{active_ticker} | NSE EQ</span>
+                    <span class="stock-title">{comp_name}</span>
+                    <span class="badge-nse">{active_symbol} | NSE/BSE</span>
                 </div>
                 <div style="background:{pill_color}25; border:2px solid {pill_color}; color:{pill_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
                     {verdict_badge}
@@ -401,25 +458,21 @@ with tab1:
         </div>
     """, unsafe_allow_html=True)
 
-    # Main Grid (Chart 72% + Order Pad 28%)
     col_chart, col_pad = st.columns([7.2, 2.8])
 
     with col_chart:
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
 
-        # Candlesticks
         fig.add_trace(go.Candlestick(
-            x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+            x=df_data.index, open=df_data['Open'], high=df_data['High'], low=df_data['Low'], close=df_data['Close'],
             name='Price'
         ), row=1, col=1)
 
-        # 20 EMA
-        fig.add_trace(go.Scatter(x=df.index, y=df['EMA_20'], line=dict(color='#38bdf8', width=1.5), name='20 EMA'), row=1, col=1)
-        if 'EMA_50' in df and pd.notna(df['EMA_50'].iloc[-1]):
-            fig.add_trace(go.Scatter(x=df.index, y=df['EMA_50'], line=dict(color='#fbbf24', width=1.5), name='50 EMA'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.5), name='20 EMA'), row=1, col=1)
+        if 'EMA_50' in df_data and pd.notna(df_data['EMA_50'].iloc[-1]):
+            fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_50'], line=dict(color='#fbbf24', width=1.5), name='50 EMA'), row=1, col=1)
 
-        # BUY Markers
-        buys = df[df['Buy_Signal'].notna()]
+        buys = df_data[df_data['Buy_Signal'].notna()]
         if not buys.empty:
             fig.add_trace(go.Scatter(
                 x=buys.index, y=buys['Buy_Signal'],
@@ -431,8 +484,7 @@ with tab1:
                 name='BUY'
             ), row=1, col=1)
 
-        # PROFIT BOOK Markers
-        sells = df[df['Sell_Signal'].notna()]
+        sells = df_data[df_data['Sell_Signal'].notna()]
         if not sells.empty:
             fig.add_trace(go.Scatter(
                 x=sells.index, y=sells['Sell_Signal'],
@@ -444,11 +496,9 @@ with tab1:
                 name='PROFIT BOOK'
             ), row=1, col=1)
 
-        # Volume
-        vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df.iterrows()]
-        fig.add_trace(go.Bar(x=df.index, y=df['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
+        vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df_data.iterrows()]
+        fig.add_trace(go.Bar(x=df_data.index, y=df_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
 
-        # Compact Height (410px) to prevent vertical scrolling
         fig.update_layout(
             height=410,
             margin=dict(l=5, r=5, t=10, b=5),
@@ -456,25 +506,21 @@ with tab1:
             template="plotly_dark",
             paper_bgcolor="#0b0f19",
             plot_bgcolor="#0b0f19",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=11))
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig, use_container_width=True)
 
     with col_pad:
         st.markdown("""
-            <div class="order-box">
+            <div style="background:#111726; border:1px solid #1e293b; border-radius:8px; padding:10px; margin-bottom:8px;">
                 <span style="font-size:1.1rem; font-weight:800; color:#ffffff;">🛒 Kotak Neo Order Pad</span>
             </div>
         """, unsafe_allow_html=True)
 
-        tab_buy, tab_sell = st.tabs(["BUY", "SELL"])
-
-        with tab_buy:
-            qty = st.number_input("Quantity", min_value=1, value=10, step=1, key="q_buy")
-            prod = st.radio("Product", ["CNC (Delivery)", "MIS (Intraday)"], horizontal=True, key="p_buy")
-            margin_req = qty * ltp
-            st.markdown(f"<span style='font-size:1rem; font-weight:700;'>Margin: ₹{margin_req:,.2f}</span>", unsafe_allow_html=True)
-            
+        tab_b, tab_s = st.tabs(["BUY", "SELL"])
+        with tab_b:
+            qty = st.number_input("Qty", min_value=1, value=10, step=1, key="t_q_buy")
+            st.markdown(f"<span style='font-size:1rem; font-weight:700;'>Margin: ₹{qty * ltp:,.2f}</span>", unsafe_allow_html=True)
             st.markdown(f"""
                 <div style="background:#131c2e; padding:8px 12px; border-radius:6px; margin:8px 0; font-size:0.9rem; border:1px solid #1e293b; line-height:1.6;">
                     • <b>Stop-Loss:</b> <span style="color:#ef4444; font-weight:700;">₹{stop_loss:,.2f}</span><br>
@@ -482,17 +528,16 @@ with tab1:
                     • <b>Target 2 (Final):</b> <span style="color:#10b981; font-weight:700;">₹{target_2:,.2f}</span>
                 </div>
             """, unsafe_allow_html=True)
-            
             if st.button("BUY NOW", use_container_width=True):
-                st.success(f"Executed: {qty} {active_ticker} @ ₹{ltp:,.2f}")
+                st.success(f"Bought {qty} {active_symbol} @ ₹{ltp:,.2f}")
 
-        with tab_sell:
-            s_qty = st.number_input("Exit Quantity", min_value=1, value=qty, step=1, key="q_sell")
-            st.markdown(f"<span style='font-size:1rem; font-weight:700;'>Est. Proceeds: ₹{s_qty * ltp:,.2f}</span>", unsafe_allow_html=True)
+        with tab_s:
+            s_q = st.number_input("Exit Qty", min_value=1, value=qty, step=1, key="t_q_sell")
+            st.markdown(f"<span style='font-size:1rem; font-weight:700;'>Proceeds: ₹{s_q * ltp:,.2f}</span>", unsafe_allow_html=True)
             if st.button("BOOK PROFIT", use_container_width=True):
-                st.warning(f"Sold: {s_qty} {active_ticker} @ ₹{ltp:,.2f}")
+                st.warning(f"Sold {s_q} {active_symbol} @ ₹{ltp:,.2f}")
 
-    # Bottom Benchmarks (Compact Row)
+    # Bottom Benchmarks
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
     m2.metric("14-Day RSI", f"{rsi_val:.1f}")
@@ -500,33 +545,83 @@ with tab1:
     m4.metric("Key Resistance", f"₹{resistance:,.2f}")
     m5.metric("Target 1 (50% Exit)", f"₹{target_1:,.2f}")
 
-# ==================== TAB 2: WATCHLIST SCREENER ====================
-with tab2:
-    st.markdown("### 📋 Live Screener: Trending Stocks")
-    rows = []
-    for s in watchlist_keys:
-        try:
-            q = scrape_google_finance_live(s)
-            c_p = q["price"] or COMMON_ALIASES.get(s, (s, s, 500.0))[2]
-            c_name = q["name"] or COMMON_ALIASES.get(s, (s, s, 500.0))[1]
-            rows.append({
-                "Symbol": s,
-                "Company Name": c_name,
-                "Live Price": f"₹{c_p:,.2f}",
-                "1-Day Change": q["change_pct"] or "0.0%",
-                "Signal": "🟢 BUY" if c_p >= 400 else "🟡 HOLD"
-            })
-        except Exception:
-            continue
-    if rows:
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
+with tab_watchlist:
+    st.markdown("### 📋 Your Personal Watchlist (Live Buy/Sell Radar)")
+    st.caption("Aap yahan se kisi bhi stock ko delete kar sakte hain ya upar search karke add kar sakte hain:")
 
-# ----------------- NATIVE JAVASCRIPT AUTO-REFRESH -----------------
-if auto_refresh_enabled:
-    st.markdown(f"""
-        <script>
-            setTimeout(function() {{
-                window.parent.location.reload();
-            }}, {refresh_interval * 1000});
-        </script>
-    """, unsafe_allow_html=True)
+    # Table Header
+    w_rows = []
+    for item in st.session_state.my_watchlist:
+        s_ticker = item["symbol"]
+        s_yf = item.get("yf", f"{s_ticker}.NS")
+        
+        # Scrape or estimate
+        q_data = scrape_google_finance_live(s_ticker)
+        p_live = q_data["price"]
+        
+        # Quick indicators calculation
+        temp_df = pd.DataFrame()
+        try:
+            temp_df = yf.Ticker(s_yf).history(period="1mo")
+        except Exception:
+            pass
+        if temp_df.empty or len(temp_df) < 5:
+            temp_df = generate_fresh_candles(base_price=p_live if p_live else 500.0, days=20)
+        
+        if p_live:
+            temp_df.loc[temp_df.index[-1], 'Close'] = p_live
+            
+        temp_df = apply_signals(temp_df)
+        
+        c_price = float(temp_df['Close'].iloc[-1])
+        c_ema = float(temp_df['EMA_20'].iloc[-1])
+        c_rsi = float(temp_df['RSI'].iloc[-1])
+        c_sup = float(temp_df['Low'].tail(15).min())
+        c_sl = round(c_sup * 0.985, 2)
+        c_risk = max(3.0, c_price - c_sl)
+        c_t1 = round(c_price + (c_risk * 1.25), 2)
+
+        if c_price > c_ema and c_rsi <= 68:
+            signal_txt = "🟢 BUY"
+        elif c_rsi > 68:
+            signal_txt = "🟡 PROFIT BOOK"
+        else:
+            signal_txt = "🔴 AVOID / EXIT"
+
+        pct_val = q_data["change_pct"] or "0.0%"
+        w_rows.append({
+            "Symbol": s_ticker,
+            "Company Name": q_data["name"] or item["name"],
+            "LTP": f"₹{c_price:,.2f}",
+            "1-Day Change": pct_val,
+            "Signal": signal_txt,
+            "Stop-Loss": f"₹{c_sl:,.2f}",
+            "Target 1": f"₹{c_t1:,.2f}"
+        })
+
+    if w_rows:
+        df_screener = pd.DataFrame(w_rows)
+        st.dataframe(df_screener, use_container_width=True, hide_index=True)
+
+    # Actions: Open in Terminal or Delete from Watchlist
+    st.markdown("#### ⚡ Quick Actions on Watchlist:")
+    act_col1, act_col2 = st.columns([6, 6])
+    
+    with act_col1:
+        st.write("**📈 Open Stock in One-Page Terminal:**")
+        symbols_list = [w["symbol"] for w in st.session_state.my_watchlist]
+        target_view = st.selectbox("Select Stock to View:", symbols_list, key="sel_view")
+        if st.button("Open in Terminal"):
+            chosen = next((x for x in st.session_state.my_watchlist if x["symbol"] == target_view), None)
+            if chosen:
+                st.session_state.active_scrip = chosen
+                st.rerun()
+
+    with act_col2:
+        st.write("**❌ Remove Stock from Watchlist:**")
+        target_delete = st.selectbox("Select Stock to Delete:", symbols_list, key="sel_del")
+        if st.button("Delete from Watchlist"):
+            st.session_state.my_watchlist = [x for x in st.session_state.my_watchlist if x["symbol"] != target_delete]
+            st.success(f"Removed {target_delete} from Watchlist!")
+            st.rerun()
