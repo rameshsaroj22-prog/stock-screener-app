@@ -32,7 +32,7 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* 1. TIMEFRAME PILL BAR (LIKE GOOGLE FINANCE / TRADINGVIEW) */
+    /* 1. TIMEFRAME PILL BAR */
     div[data-testid="stRadio"] > div {
         display: flex !important;
         flex-direction: row !important;
@@ -68,7 +68,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* 2. UNIVERSAL BUTTONS (PERMANENT WHITE TEXT, NO HOVER BUG) */
+    /* 2. UNIVERSAL BUTTONS (PERMANENT WHITE TEXT) */
     div[data-testid="stButton"] > button {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -329,7 +329,6 @@ def generate_pro_candles_by_period(base_price, period_choice):
     np.random.seed(101)
     
     if period_choice == "1D":
-        # 1-day intraday 5-min intervals (75 candles from 9:15 AM to 3:30 PM)
         times = pd.date_range(end=datetime.datetime.now(), periods=50, freq='5min')
         returns = np.random.normal(0.0001, 0.002, 50)
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
@@ -348,7 +347,7 @@ def generate_pro_candles_by_period(base_price, period_choice):
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
         curve = curve * (base_price / curve[-1])
         df = pd.DataFrame(index=dates)
-    else:  # 1Y, 5Y, Max
+    else:
         days = 70
         dates = pd.bdate_range(end=datetime.date.today(), periods=days)
         returns = np.random.normal(0.002, 0.018, days)
@@ -438,7 +437,7 @@ cols_idx[2].markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ----------------- PROMINENT SEARCH BAR (CLEAR CYAN TITLE & RESET BUTTON) -----------------
+# ----------------- PROMINENT SEARCH BAR -----------------
 st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (Google / NSE / BSE):</p>', unsafe_allow_html=True)
 search_c1, search_c2 = st.columns([8.4, 1.6])
 with search_c1:
@@ -450,74 +449,4 @@ with search_c1:
 
 with search_c2:
     st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-    if st.button("🔄 Reset", use_container_width=True):
-        st.session_state.active_scrip = st.session_state.my_watchlist[0]
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Match Card & Dedicated Solid Action Buttons
-if search_query.strip():
-    s_sym, s_name, s_price, s_yf, s_prev = resolve_ticker_info(search_query)
-    st.markdown(f"""
-        <div style="background:#161f30; padding:12px 18px; border-radius:8px; border:1.5px solid #2563eb; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <b style="color:#ffffff; font-size:1.2rem;">🎯 Matched: {s_name} ({s_sym})</b>
-                <span style="color:#38bdf8; margin-left:14px; font-weight:800; font-size:1.1rem;">Live Price: ₹{s_price:,.2f}</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    act_c1, act_c2 = st.columns([2.5, 2.5])
-    with act_c1:
-        if st.button("📈 Open in Terminal", key="btn_open_terminal", use_container_width=True):
-            st.session_state.active_scrip = {"symbol": s_sym, "name": s_name, "yf": s_yf, "price": s_price}
-            st.rerun()
-    with act_c2:
-        st.markdown('<div class="add-btn">', unsafe_allow_html=True)
-        if st.button("➕ Add to My Watchlist", key="btn_add_watchlist", use_container_width=True):
-            if not any(w["symbol"] == s_sym for w in st.session_state.my_watchlist):
-                st.session_state.my_watchlist.append({"symbol": s_sym, "name": s_name, "yf": s_yf, "price": s_price})
-                st.success(f"{s_sym} added to Watchlist!")
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ----------------- HIGH-CONTRAST TABS -----------------
-tab_terminal, tab_watchlist = st.tabs([
-    "📈 Kotak Neo One-Page Terminal",
-    "📋 Manual Watchlist & Live Screener"
-])
-
-# ==================== TAB 1: ONE-PAGE TERMINAL ====================
-with tab_terminal:
-    active_obj = st.session_state.active_scrip
-    active_sym = active_obj["symbol"]
-    active_name = active_obj["name"]
-    active_yf = active_obj.get("yf", f"{active_sym}.NS")
-    known_price = active_obj.get("price", 1424.10)
-
-    g_info = scrape_google_finance_live(active_sym)
-    live_price = g_info["price"] if g_info["price"] else known_price
-
-    # Top Header Card
-    ltp_base = live_price
-    prev_close = g_info["prev_close"] if g_info["prev_close"] else ltp_base * 0.997
-    chg_pts = ltp_base - prev_close
-    chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
-
-    is_up = chg_pts >= 0
-    pill_class = "change-green" if is_up else "change-red"
-    sign = "+" if is_up else ""
-
-    st.markdown(f"""
-        <div class="neo-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <span class="stock-title">{active_name}</span>
-                    <span class="badge-nse">{active_sym} | NSE/BSE</span>
-                </div>
-                <div style="background:#10b98125; border:2px solid #10b981; color:#10b981; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
-                    🟢 BUY CONFIRMED
-                </div>
-            </div>
-            <div style="display:flex; align-items:baseline; margin-top:4px;">
-                <span class="price-large">₹{ltp_base:,.
+    if st.button("🔄 Reset", use_container_width
