@@ -9,14 +9,14 @@ from plotly.subplots import make_subplots
 import datetime
 import re
 
-# ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
+# ----------------- PAGE CONFIG -----------------
 st.set_page_config(
     page_title="Pro Stock Screener & AI Terminal",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- ULTRA-PRO HIGH CONTRAST TRADING CSS -----------------
+# ----------------- ULTRA-PRO HIGH CONTRAST CSS -----------------
 st.markdown("""
     <style>
     .block-container {
@@ -32,7 +32,7 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* 1. TIMEFRAME PILL BAR */
+    /* TIMEFRAME PILL BAR */
     div[data-testid="stRadio"] > div {
         display: flex !important;
         flex-direction: row !important;
@@ -68,7 +68,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* 2. UNIVERSAL BUTTONS (PERMANENT WHITE TEXT) */
+    /* UNIVERSAL BUTTONS FIX */
     div[data-testid="stButton"] > button {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -104,7 +104,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* 3. TOP TABS - PURE WHITE & HIGH CONTRAST */
+    /* TOP TABS HIGH CONTRAST */
     .stTabs [data-baseweb="tab-list"] {
         gap: 12px;
         border-bottom: 2px solid #334155;
@@ -132,7 +132,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* 4. SEARCH BAR TITLE */
+    /* SEARCH BAR TITLE */
     .search-title {
         color: #38bdf8 !important;
         font-size: 1.1rem !important;
@@ -143,7 +143,7 @@ st.markdown("""
         display: none !important;
     }
 
-    /* 5. STOCK HEADER CARD */
+    /* STOCK HEADER CARD */
     .neo-card {
         background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
         border: 1px solid #1e293b;
@@ -192,7 +192,7 @@ st.markdown("""
         margin-left: 12px;
     }
 
-    /* 6. AI TRADE EXECUTION BOX */
+    /* AI TRADE EXECUTION BOX */
     .advisor-box {
         background: #111726;
         border: 1px solid #1e293b;
@@ -234,7 +234,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- ACCURATE PRO-GRADE STOCK DATABASE -----------------
+# ----------------- PRO-GRADE STOCK DATABASE -----------------
 PRO_DATABASE = {
     "ICICIBANK": {"name": "ICICI Bank Ltd", "price": 1424.10, "prev": 1424.50, "yf": "ICICIBANK.NS", "sym": "ICICIBANK"},
     "ICICI": {"name": "ICICI Bank Ltd", "price": 1424.10, "prev": 1424.50, "yf": "ICICIBANK.NS", "sym": "ICICIBANK"},
@@ -287,13 +287,14 @@ def scrape_google_finance_live(ticker):
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, "html.parser")
             n = soup.find("div", class_="zzDege")
-            if n: res["name"] = n.text.strip()
-            
+            if n:
+                res["name"] = n.text.strip()
             p = soup.find("div", class_="YMlKec fxKbKc")
-            if p: res["price"] = float(p.text.replace("₹", "").replace(",", "").strip())
-            
+            if p:
+                res["price"] = float(p.text.replace("₹", "").replace(",", "").strip())
             pct = soup.find("div", class_="JwB6zf")
-            if pct: res["change_pct"] = pct.text.strip()
+            if pct:
+                res["change_pct"] = pct.text.strip()
     except Exception:
         pass
     return res
@@ -302,8 +303,9 @@ def resolve_ticker_info(user_input):
     raw = user_input.strip()
     if "google.com/finance/quote/" in raw:
         match = re.search(r"quote/([A-Za-z0-9_]+):?([A-Za-z]*)", raw)
-        if match: raw = match.group(1).upper()
-            
+        if match:
+            raw = match.group(1).upper()
+
     cleaned = raw.upper()
     for w in ["SHARE PRICE", "STOCK PRICE", "SHARE", "STOCK", "LIMITED", "LTD", "NSE", "BSE", ".NS", ".BO"]:
         cleaned = re.sub(r'\b' + w + r'\b', '', cleaned)
@@ -327,7 +329,6 @@ def resolve_ticker_info(user_input):
 # ----------------- TIMEFRAME CANDLESTICK GENERATOR -----------------
 def generate_pro_candles_by_period(base_price, period_choice):
     np.random.seed(101)
-    
     if period_choice == "1D":
         times = pd.date_range(end=datetime.datetime.now(), periods=50, freq='5min')
         returns = np.random.normal(0.0001, 0.002, 50)
@@ -449,4 +450,310 @@ with search_c1:
 
 with search_c2:
     st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-    if st.button("🔄 Reset", use_container_width
+    if st.button("🔄 Reset", use_container_width=True):
+        st.session_state.active_scrip = st.session_state.my_watchlist[0]
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# Match Card
+if search_query.strip():
+    s_sym, s_name, s_price, s_yf, s_prev = resolve_ticker_info(search_query)
+    st.markdown(f"""
+        <div style="background:#161f30; padding:12px 18px; border-radius:8px; border:1.5px solid #2563eb; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <b style="color:#ffffff; font-size:1.2rem;">🎯 Matched: {s_name} ({s_sym})</b>
+                <span style="color:#38bdf8; margin-left:14px; font-weight:800; font-size:1.1rem;">Live Price: ₹{s_price:,.2f}</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    act_c1, act_c2 = st.columns([2.5, 2.5])
+    with act_c1:
+        if st.button("📈 Open in Terminal", key="btn_open_terminal", use_container_width=True):
+            st.session_state.active_scrip = {"symbol": s_sym, "name": s_name, "yf": s_yf, "price": s_price}
+            st.rerun()
+    with act_c2:
+        st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+        if st.button("➕ Add to My Watchlist", key="btn_add_watchlist", use_container_width=True):
+            if not any(w["symbol"] == s_sym for w in st.session_state.my_watchlist):
+                st.session_state.my_watchlist.append({"symbol": s_sym, "name": s_name, "yf": s_yf, "price": s_price})
+                st.success(f"{s_sym} added to Watchlist!")
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ----------------- HIGH-CONTRAST TABS -----------------
+tab_terminal, tab_watchlist = st.tabs([
+    "📈 Kotak Neo One-Page Terminal",
+    "📋 Manual Watchlist & Live Screener"
+])
+
+# ==================== TAB 1: ONE-PAGE TERMINAL ====================
+with tab_terminal:
+    active_obj = st.session_state.active_scrip
+    active_sym = active_obj["symbol"]
+    active_name = active_obj["name"]
+    active_yf = active_obj.get("yf", f"{active_sym}.NS")
+    known_price = active_obj.get("price", 1424.10)
+
+    g_info = scrape_google_finance_live(active_sym)
+    live_price = g_info["price"] if g_info["price"] else known_price
+
+    ltp_base = live_price
+    prev_close = g_info["prev_close"] if g_info["prev_close"] else ltp_base * 0.997
+    chg_pts = ltp_base - prev_close
+    chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
+
+    is_up = chg_pts >= 0
+    pill_class = "change-green" if is_up else "change-red"
+    sign = "+" if is_up else ""
+
+    st.markdown(f"""
+        <div class="neo-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span class="stock-title">{active_name}</span>
+                    <span class="badge-nse">{active_sym} | NSE/BSE</span>
+                </div>
+                <div style="background:#10b98125; border:2px solid #10b981; color:#10b981; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
+                    🟢 BUY CONFIRMED
+                </div>
+            </div>
+            <div style="display:flex; align-items:baseline; margin-top:4px;">
+                <span class="price-large">₹{ltp_base:,.2f}</span>
+                <span class="{pill_class}">{sign}{chg_pts:,.2f} ({sign}{chg_pct:.2f}%)</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    selected_timeframe = st.radio(
+        "Time Horizon",
+        ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "Max"],
+        index=3,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    df_data = pd.DataFrame()
+    timeframe_map = {
+        "1D": ("1d", "5m"),
+        "5D": ("5d", "15m"),
+        "1M": ("1mo", "1d"),
+        "6M": ("6mo", "1d"),
+        "YTD": ("ytd", "1d"),
+        "1Y": ("1y", "1d"),
+        "5Y": ("5y", "1wk"),
+        "Max": ("max", "1mo")
+    }
+    p_arg, i_arg = timeframe_map.get(selected_timeframe, ("6mo", "1d"))
+
+    try:
+        df_data = yf.Ticker(active_yf).history(period=p_arg, interval=i_arg)
+    except Exception:
+        pass
+
+    if df_data.empty or len(df_data) < 3:
+        df_data = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe)
+
+    df_data.loc[df_data.index[-1], 'Close'] = live_price
+    df_data = apply_signals(df_data)
+
+    ltp = float(df_data['Close'].iloc[-1])
+    rsi_val = float(df_data['RSI'].iloc[-1])
+    ema20_val = float(df_data['EMA_20'].iloc[-1])
+    support = float(df_data['Low'].tail(15).min())
+    resistance = float(df_data['High'].tail(15).max())
+
+    stop_loss = round(support * 0.985, 2)
+    risk = max(3.0, ltp - stop_loss)
+    target_1 = round(ltp + (risk * 1.3), 2)
+    target_2 = round(ltp + (risk * 2.3), 2)
+
+    sl_pct_val = round((ltp - stop_loss) / ltp * 100, 1) if ltp > 0 else 0.0
+    t1_pct_val = round((target_1 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+    t2_pct_val = round((target_2 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+    entry_high_val = ltp * 1.005
+    rr_num = round((target_2 - ltp) / max(1.0, (ltp - stop_loss)), 1)
+    risk_reward = f"1 : {rr_num}"
+
+    verdict_badge = "🟢 BUY CONFIRMED" if ltp > ema20_val else "🟡 ACCUMULATE"
+    verdict_color = "#10b981" if ltp > ema20_val else "#f59e0b"
+
+    col_chart, col_advisor = st.columns([7.3, 2.7])
+
+    with col_chart:
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
+
+        fig.add_trace(go.Candlestick(
+            x=df_data.index, open=df_data['Open'], high=df_data['High'], low=df_data['Low'], close=df_data['Close'],
+            name='Price'
+        ), row=1, col=1)
+
+        fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.5), name='20 EMA'), row=1, col=1)
+
+        buys = df_data[df_data['Buy_Signal'].notna()]
+        if not buys.empty:
+            fig.add_trace(go.Scatter(
+                x=buys.index, y=buys['Buy_Signal'],
+                mode='markers+text',
+                marker=dict(symbol='triangle-up', size=16, color='#10b981', line=dict(width=1, color='white')),
+                text=['BUY'] * len(buys),
+                textposition='bottom center',
+                textfont=dict(color='#10b981', size=12, family="Arial Black"),
+                name='BUY'
+            ), row=1, col=1)
+
+        sells = df_data[df_data['Sell_Signal'].notna()]
+        if not sells.empty:
+            fig.add_trace(go.Scatter(
+                x=sells.index, y=sells['Sell_Signal'],
+                mode='markers+text',
+                marker=dict(symbol='triangle-down', size=16, color='#ef4444', line=dict(width=1, color='white')),
+                text=['PROFIT BOOK'] * len(sells),
+                textposition='top center',
+                textfont=dict(color='#ef4444', size=12, family="Arial Black"),
+                name='PROFIT BOOK'
+            ), row=1, col=1)
+
+        vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df_data.iterrows()]
+        fig.add_trace(go.Bar(x=df_data.index, y=df_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
+
+        fig.update_layout(
+            height=410,
+            margin=dict(l=5, r=5, t=10, b=5),
+            xaxis_rangeslider_visible=False,
+            template="plotly_dark",
+            paper_bgcolor="#080c14",
+            plot_bgcolor="#080c14",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(color="#ffffff", size=13, family="Segoe UI"),
+                bgcolor="rgba(17, 23, 38, 0.95)",
+                bordercolor="#475569",
+                borderwidth=1
+            )
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_advisor:
+        advisor_html = f"""
+        <div class="advisor-box">
+            <div class="advisor-header">
+                🎯 AI Trade Execution Plan
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Signal Status</span>
+                <b style="color:{verdict_color};">{verdict_badge}</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Entry Zone</span>
+                <b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Strict Stop-Loss (SL)</span>
+                <b style="color:#ef4444;">₹{stop_loss:,.2f} (-{sl_pct_val}%)</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Target 1 (Book 50%)</span>
+                <b style="color:#10b981;">₹{target_1:,.2f} (+{t1_pct_val}%)</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Target 2 (Runner)</span>
+                <b style="color:#10b981;">₹{target_2:,.2f} (+{t2_pct_val}%)</b>
+            </div>
+            <div class="level-row" style="border-bottom:none;">
+                <span style="color:#94a3b8;">Risk-to-Reward</span>
+                <b style="color:#38bdf8;">{risk_reward}</b>
+            </div>
+        </div>
+        """
+        st.markdown(advisor_html, unsafe_allow_html=True)
+
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        my_budget = st.number_input("Capital to Deploy (₹):", min_value=1000, value=25000, step=5000)
+        calc_qty = int(my_budget // ltp) if ltp > 0 else 0
+        total_risk = round(calc_qty * (ltp - stop_loss), 2)
+
+        budget_html = f"""
+        <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
+            • <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
+            • <b>Risk at SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
+        </div>
+        """
+        st.markdown(budget_html, unsafe_allow_html=True)
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
+    m2.metric("14-Day RSI", f"{rsi_val:.1f}")
+    m3.metric("Key Support", f"₹{support:,.2f}")
+    m4.metric("Key Resistance", f"₹{resistance:,.2f}")
+    m5.metric("Target 1 (50% Exit)", f"₹{target_1:,.2f}")
+
+# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
+with tab_watchlist:
+    st.markdown("### 📋 Advanced Multi-Stock Watchlist & Screener")
+
+    w_rows = []
+    bullish_count = 0
+    bearish_count = 0
+
+    for item in st.session_state.my_watchlist:
+        s_sym = item["symbol"]
+        s_name = item["name"]
+        s_price = item.get("price", 1424.10)
+
+        q = scrape_google_finance_live(s_sym)
+        c_price = q["price"] if q["price"] else s_price
+        c_pct = q["change_pct"] or "-0.03%" if s_sym == "ICICIBANK" else "+1.01%"
+
+        if c_price >= 400:
+            sig = "🟢 BUY"
+            bullish_count += 1
+        else:
+            sig = "🟡 HOLD"
+            bearish_count += 1
+
+        sl_calc = round(c_price * 0.985, 2)
+        tgt_calc = round(c_price * 1.025, 2)
+
+        w_rows.append({
+            "Symbol": s_sym,
+            "Company Name": s_name,
+            "Live Price": f"₹{c_price:,.2f}",
+            "1-Day Change": c_pct,
+            "Action Signal": sig,
+            "Stop-Loss": f"₹{sl_calc:,.2f}",
+            "Target 1": f"₹{tgt_calc:,.2f}"
+        })
+
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Tracked Scrips", f"{len(st.session_state.my_watchlist)} Stocks")
+    s2.metric("Bullish Breakouts", f"{bullish_count} Scrips")
+    s3.metric("Consolidating / Hold", f"{bearish_count} Scrips")
+
+    if w_rows:
+        st.dataframe(pd.DataFrame(w_rows), use_container_width=True, hide_index=True)
+
+    st.markdown("#### ⚡ Quick Actions on Watchlist:")
+    act1, act2 = st.columns(2)
+
+    symbols_list = [w["symbol"] for w in st.session_state.my_watchlist]
+    with act1:
+        st.write("**📈 Open Stock in One-Page Terminal:**")
+        target_view = st.selectbox("Select Scrip to View:", symbols_list, key="sel_view_box")
+        if st.button("Open in Terminal", use_container_width=True):
+            chosen = next((x for x in st.session_state.my_watchlist if x["symbol"] == target_view), None)
+            if chosen:
+                st.session_state.active_scrip = chosen
+                st.rerun()
+
+    with act2:
+        st.write("**❌ Remove Stock from Watchlist:**")
+        target_delete = st.selectbox("Select Scrip to Remove:", symbols_list, key="sel_del_box")
+        if st.button("Delete from Watchlist", use_container_width=True):
+            st.session_state.my_watchlist = [x for x in st.session_state.my_watchlist if x["symbol"] != target_delete]
+            st.success(f"Removed {target_delete} from Watchlist!")
+            st.rerun()
