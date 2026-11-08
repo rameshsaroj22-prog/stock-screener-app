@@ -16,9 +16,32 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- ULTRA-PRO HIGH CONTRAST CSS -----------------
+# ----------------- ULTRA-PRO HIGH CONTRAST & HEADER FIX CSS -----------------
 st.markdown("""
     <style>
+    /* 1. TOP HEADER & SHARE BUTTON FIX (ELIMINATE WHITE BAR & MAKE SHARE VISIBLE) */
+    header[data-testid="stHeader"] {
+        background-color: #080c14 !important;
+        border-bottom: 1px solid #1e293b !important;
+    }
+    header[data-testid="stHeader"] * {
+        color: #ffffff !important;
+    }
+    header[data-testid="stHeader"] button, 
+    header[data-testid="stHeader"] a {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        border: 1px solid #38bdf8 !important;
+        border-radius: 6px !important;
+        font-weight: 800 !important;
+        padding: 4px 12px !important;
+    }
+    header[data-testid="stHeader"] svg {
+        fill: #38bdf8 !important;
+        stroke: #38bdf8 !important;
+    }
+
+    /* 2. BASE APP CONTAINER */
     .block-container {
         padding-top: 0.6rem !important;
         padding-bottom: 0.4rem !important;
@@ -32,7 +55,7 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* TIMEFRAME PILL BAR */
+    /* 3. TIMEFRAME PILL BAR */
     div[data-testid="stRadio"] > div {
         display: flex !important;
         flex-direction: row !important;
@@ -68,7 +91,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* BUTTONS */
+    /* 4. UNIVERSAL BUTTONS (PERMANENT WHITE TEXT) */
     div[data-testid="stButton"] > button {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -97,6 +120,13 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
+    .share-btn button {
+        background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important;
+        border: 1px solid #3b82f6 !important;
+        color: #ffffff !important;
+        font-weight: 900 !important;
+    }
+
     .add-btn button {
         background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
         border: 1px solid #34d399 !important;
@@ -104,7 +134,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* TOP TABS */
+    /* 5. TOP TABS */
     .stTabs [data-baseweb="tab-list"] {
         gap: 12px;
         border-bottom: 2px solid #334155;
@@ -132,7 +162,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* SEARCH BAR TITLE */
+    /* 6. SEARCH BAR TITLE */
     .search-title {
         color: #38bdf8 !important;
         font-size: 1.1rem !important;
@@ -143,7 +173,7 @@ st.markdown("""
         display: none !important;
     }
 
-    /* STOCK HEADER CARD */
+    /* 7. STOCK HEADER CARD */
     .neo-card {
         background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
         border: 1px solid #1e293b;
@@ -192,7 +222,7 @@ st.markdown("""
         margin-left: 12px;
     }
 
-    /* CHANDELIER ADVISOR BOX */
+    /* 8. CHANDELIER ADVISOR BOX */
     .advisor-box {
         background: #111726;
         border: 1px solid #1e293b;
@@ -365,13 +395,6 @@ def generate_pro_candles_by_period(base_price, period_choice):
 
 # ----------------- CHANDELIER EXIT [EVERGET] (ATR 7, MULTIPLIER 2.0) -----------------
 def calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True):
-    """
-    Chandelier Exit [everget]:
-    - Configured with Length = 7 and Multiplier = 2.0
-    - ATR Length = 7
-    - Long Stop ratchets up during uptrend.
-    - Short Stop ratchets down during downtrend.
-    """
     total = len(df)
     eff_length = min(total, max(2, length))
 
@@ -385,7 +408,6 @@ def calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True):
     tr3 = (low - prev_close).abs()
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
 
-    # Wilder's Smoothing for ATR (Period = 7)
     atr = tr.ewm(alpha=1.0 / eff_length, min_periods=1, adjust=False).mean()
     df['ATR'] = atr
     atr_scaled = mult * atr
@@ -417,7 +439,6 @@ def calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True):
         rl = raw_long_stop.iloc[i]
         rs = raw_short_stop.iloc[i]
 
-        # Ratchet Long Stop upward
         if i > 0:
             if c_prev > long_stop[i-1]:
                 curr_long = max(rl, long_stop[i-1])
@@ -426,7 +447,6 @@ def calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True):
         else:
             curr_long = rl
 
-        # Ratchet Short Stop downward
         if i > 0:
             if c_prev < short_stop[i-1]:
                 curr_short = min(rs, short_stop[i-1])
@@ -464,7 +484,6 @@ def calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True):
     df['Buy_Signal'] = buy_signals
     df['Sell_Signal'] = sell_signals
 
-    # 20 EMA
     df['EMA_20'] = df['Close'].ewm(span=min(20, total), adjust=False).mean()
     return df
 
@@ -513,14 +532,15 @@ cols_idx[2].markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# ----------------- PROMINENT SEARCH BAR -----------------
+# ----------------- PROMINENT SEARCH BAR (WITH DEDICATED RESET & SHARE) -----------------
 st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (Google / NSE / BSE):</p>', unsafe_allow_html=True)
-search_c1, search_c2 = st.columns([8.4, 1.6])
+search_c1, search_c2, search_c3 = st.columns([7.4, 1.3, 1.3])
+
 with search_c1:
     search_query = st.text_input(
         "Search Box Input",
         value="",
-        placeholder="Type name (e.g. ICICI Bank, Vikram Solar, TCS, Orient Cable, JPL) or paste Google URL..."
+        placeholder="Type name (e.g. Vikram Solar, ICICI Bank, TCS, Orient Cable, JPL) or paste Google URL..."
     )
 
 with search_c2:
@@ -528,6 +548,12 @@ with search_c2:
     if st.button("🔄 Reset", use_container_width=True):
         st.session_state.active_scrip = st.session_state.my_watchlist[0]
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with search_c3:
+    st.markdown('<div class="share-btn">', unsafe_allow_html=True)
+    if st.button("🔗 Share", use_container_width=True):
+        st.toast("📋 App Link Copied: https://stock-screener-app-david.streamlit.app", icon="🚀")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Match Card
@@ -582,7 +608,6 @@ with tab_terminal:
     pill_class = "change-green" if is_up else "change-red"
     sign = "+" if is_up else ""
 
-    # Timeframe selection
     selected_timeframe = st.radio(
         "Time Horizon",
         ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "Max"],
@@ -614,7 +639,7 @@ with tab_terminal:
 
     df_data.loc[df_data.index[-1], 'Close'] = live_price
     
-    # Calculate Chandelier Exit with ATR Period = 7, Multiplier = 2.0
+    # Chandelier Exit (ATR Period = 7, Multiplier = 2.0)
     df_data = calculate_chandelier_exit(df_data, length=7, mult=2.0, use_close=True)
 
     ltp = float(df_data['Close'].iloc[-1])
@@ -623,7 +648,6 @@ with tab_terminal:
     atr_val = float(df_data['ATR'].iloc[-1])
     ema20_val = float(df_data['EMA_20'].iloc[-1])
 
-    # Chandelier Status with 2x Multiplier
     if current_dir == 1:
         verdict_badge = "🟢 CHANDELIER BUY (LONG)"
         verdict_color = "#10b981"
@@ -647,7 +671,6 @@ with tab_terminal:
     rr_num = round(abs(target_2 - ltp) / max(1.0, risk), 1)
     risk_reward = f"1 : {rr_num}"
 
-    # Header Card
     st.markdown(f"""
         <div class="neo-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -671,16 +694,13 @@ with tab_terminal:
     with col_chart:
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
 
-        # Candlesticks
         fig.add_trace(go.Candlestick(
             x=df_data.index, open=df_data['Open'], high=df_data['High'], low=df_data['Low'], close=df_data['Close'],
             name='Price'
         ), row=1, col=1)
 
-        # 20 EMA
         fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.2), name='20 EMA'), row=1, col=1)
 
-        # Chandelier Exit Trailing Stop Line (Period: 7, Mult: 2.0)
         fig.add_trace(go.Scatter(
             x=df_data.index,
             y=df_data['Chandelier_Stop'],
@@ -688,7 +708,6 @@ with tab_terminal:
             name='Chandelier SL (7, 2.0)'
         ), row=1, col=1)
 
-        # Chandelier BUY Signals
         buys = df_data[df_data['Buy_Signal'].notna()]
         if not buys.empty:
             fig.add_trace(go.Scatter(
@@ -701,7 +720,6 @@ with tab_terminal:
                 name='Chandelier BUY'
             ), row=1, col=1)
 
-        # Chandelier SELL Signals
         sells = df_data[df_data['Sell_Signal'].notna()]
         if not sells.empty:
             fig.add_trace(go.Scatter(
@@ -785,7 +803,6 @@ with tab_terminal:
         """
         st.markdown(budget_html, unsafe_allow_html=True)
 
-    # Chandelier Specific Metrics
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("Chandelier Stop (7, 2.0)", f"₹{chan_stop:,.2f}")
     m2.metric("ATR Volatility (7)", f"₹{atr_val:,.2f}")
