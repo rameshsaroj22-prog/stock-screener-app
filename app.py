@@ -9,9 +9,9 @@ from plotly.subplots import make_subplots
 import datetime
 import re
 
-# ----------------- PAGE CONFIG -----------------
+# ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Pro Stock Screener & AI Terminal",
+    page_title="Pro Screener | Chandelier Exit (7, 2)",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -68,7 +68,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* UNIVERSAL BUTTONS FIX */
+    /* BUTTONS */
     div[data-testid="stButton"] > button {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -104,7 +104,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* TOP TABS HIGH CONTRAST */
+    /* TOP TABS */
     .stTabs [data-baseweb="tab-list"] {
         gap: 12px;
         border-bottom: 2px solid #334155;
@@ -192,7 +192,7 @@ st.markdown("""
         margin-left: 12px;
     }
 
-    /* AI TRADE EXECUTION BOX */
+    /* CHANDELIER ADVISOR BOX */
     .advisor-box {
         background: #111726;
         border: 1px solid #1e293b;
@@ -276,8 +276,8 @@ if "my_watchlist" not in st.session_state:
 if "active_scrip" not in st.session_state:
     st.session_state.active_scrip = st.session_state.my_watchlist[0]
 
-# ----------------- GOOGLE SCRAPER & RESOLVER -----------------
-@st.cache_data(ttl=20)
+# ----------------- GOOGLE SCRAPER & LIVE RESOLVER -----------------
+@st.cache_data(ttl=15)
 def scrape_google_finance_live(ticker):
     url = f"https://www.google.com/finance/quote/{ticker}:NSE"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -363,34 +363,109 @@ def generate_pro_candles_by_period(base_price, period_choice):
     df['Volume'] = np.random.randint(500000, 2500000, len(df))
     return df
 
-def apply_signals(df):
+# ----------------- CHANDELIER EXIT [EVERGET] (ATR 7, MULTIPLIER 2.0) -----------------
+def calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True):
+    """
+    Chandelier Exit [everget]:
+    - Configured with Length = 7 and Multiplier = 2.0
+    - ATR Length = 7
+    - Long Stop ratchets up during uptrend.
+    - Short Stop ratchets down during downtrend.
+    """
     total = len(df)
+    eff_length = min(total, max(2, length))
+
+    high = df['High']
+    low = df['Low']
+    close = df['Close']
+    prev_close = close.shift(1)
+
+    tr1 = high - low
+    tr2 = (high - prev_close).abs()
+    tr3 = (low - prev_close).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+    # Wilder's Smoothing for ATR (Period = 7)
+    atr = tr.ewm(alpha=1.0 / eff_length, min_periods=1, adjust=False).mean()
+    df['ATR'] = atr
+    atr_scaled = mult * atr
+
+    if use_close:
+        highest_val = close.rolling(window=eff_length, min_periods=1).max()
+        lowest_val = close.rolling(window=eff_length, min_periods=1).min()
+    else:
+        highest_val = high.rolling(window=eff_length, min_periods=1).max()
+        lowest_val = low.rolling(window=eff_length, min_periods=1).min()
+
+    raw_long_stop = highest_val - atr_scaled
+    raw_short_stop = lowest_val + atr_scaled
+
+    n = len(df)
+    long_stop = np.zeros(n)
+    short_stop = np.zeros(n)
+    direction = np.zeros(n)
+    buy_signals = [np.nan] * n
+    sell_signals = [np.nan] * n
+
+    curr_dir = 1
+    curr_long = raw_long_stop.iloc[0]
+    curr_short = raw_short_stop.iloc[0]
+
+    for i in range(n):
+        c = close.iloc[i]
+        c_prev = close.iloc[i-1] if i > 0 else c
+        rl = raw_long_stop.iloc[i]
+        rs = raw_short_stop.iloc[i]
+
+        # Ratchet Long Stop upward
+        if i > 0:
+            if c_prev > long_stop[i-1]:
+                curr_long = max(rl, long_stop[i-1])
+            else:
+                curr_long = rl
+        else:
+            curr_long = rl
+
+        # Ratchet Short Stop downward
+        if i > 0:
+            if c_prev < short_stop[i-1]:
+                curr_short = min(rs, short_stop[i-1])
+            else:
+                curr_short = rs
+        else:
+            curr_short = rs
+
+        long_stop[i] = curr_long
+        short_stop[i] = curr_short
+
+        prev_dir = curr_dir
+        if i > 0:
+            if c > short_stop[i-1]:
+                curr_dir = 1
+            elif c < long_stop[i-1]:
+                curr_dir = -1
+            else:
+                curr_dir = direction[i-1]
+        else:
+            curr_dir = 1
+
+        direction[i] = curr_dir
+
+        if i > 0:
+            if curr_dir == 1 and prev_dir == -1:
+                buy_signals[i] = low.iloc[i] * 0.988
+            elif curr_dir == -1 and prev_dir == 1:
+                sell_signals[i] = high.iloc[i] * 1.012
+
+    df['Chandelier_Long'] = long_stop
+    df['Chandelier_Short'] = short_stop
+    df['Chandelier_Dir'] = direction
+    df['Chandelier_Stop'] = np.where(direction == 1, long_stop, short_stop)
+    df['Buy_Signal'] = buy_signals
+    df['Sell_Signal'] = sell_signals
+
+    # 20 EMA
     df['EMA_20'] = df['Close'].ewm(span=min(20, total), adjust=False).mean()
-
-    delta = df['Close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=min(14, total)).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=min(14, total)).mean()
-    rs = gain / (loss.replace(0, np.nan))
-    df['RSI'] = (100 - (100 / (1 + rs))).fillna(52.0)
-
-    df['Buy_Signal'] = np.nan
-    df['Sell_Signal'] = np.nan
-
-    has_pos = False
-    for i in range(1, len(df)):
-        c = df['Close'].iloc[i]
-        p = df['Close'].iloc[i-1]
-        e = df['EMA_20'].iloc[i]
-        pe = df['EMA_20'].iloc[i-1]
-        rsi = df['RSI'].iloc[i]
-
-        if not has_pos and p <= pe and c > e and 38 <= rsi <= 68:
-            df.loc[df.index[i], 'Buy_Signal'] = df['Low'].iloc[i] * 0.988
-            has_pos = True
-        elif has_pos and (rsi >= 70 or (p >= pe and c < e)):
-            df.loc[df.index[i], 'Sell_Signal'] = df['High'].iloc[i] * 1.012
-            has_pos = False
-
     return df
 
 # ----------------- TOP INDICES (NIFTY & SENSEX) -----------------
@@ -434,7 +509,7 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown("""
     <div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">
-        ● Real-Time AI Trading Engine Active
+        ● Chandelier Exit (7, 2.0) Live Engine Active
     </div>
 """, unsafe_allow_html=True)
 
@@ -507,24 +582,7 @@ with tab_terminal:
     pill_class = "change-green" if is_up else "change-red"
     sign = "+" if is_up else ""
 
-    st.markdown(f"""
-        <div class="neo-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <span class="stock-title">{active_name}</span>
-                    <span class="badge-nse">{active_sym} | NSE/BSE</span>
-                </div>
-                <div style="background:#10b98125; border:2px solid #10b981; color:#10b981; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
-                    🟢 BUY CONFIRMED
-                </div>
-            </div>
-            <div style="display:flex; align-items:baseline; margin-top:4px;">
-                <span class="price-large">₹{ltp_base:,.2f}</span>
-                <span class="{pill_class}">{sign}{chg_pts:,.2f} ({sign}{chg_pct:.2f}%)</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
+    # Timeframe selection
     selected_timeframe = st.radio(
         "Time Horizon",
         ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "Max"],
@@ -555,41 +613,82 @@ with tab_terminal:
         df_data = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe)
 
     df_data.loc[df_data.index[-1], 'Close'] = live_price
-    df_data = apply_signals(df_data)
+    
+    # Calculate Chandelier Exit with ATR Period = 7, Multiplier = 2.0
+    df_data = calculate_chandelier_exit(df_data, length=7, mult=2.0, use_close=True)
 
     ltp = float(df_data['Close'].iloc[-1])
-    rsi_val = float(df_data['RSI'].iloc[-1])
+    current_dir = int(df_data['Chandelier_Dir'].iloc[-1])
+    chan_stop = float(df_data['Chandelier_Stop'].iloc[-1])
+    atr_val = float(df_data['ATR'].iloc[-1])
     ema20_val = float(df_data['EMA_20'].iloc[-1])
-    support = float(df_data['Low'].tail(15).min())
-    resistance = float(df_data['High'].tail(15).max())
 
-    stop_loss = round(support * 0.985, 2)
-    risk = max(3.0, ltp - stop_loss)
-    target_1 = round(ltp + (risk * 1.3), 2)
-    target_2 = round(ltp + (risk * 2.3), 2)
+    # Chandelier Status with 2x Multiplier
+    if current_dir == 1:
+        verdict_badge = "🟢 CHANDELIER BUY (LONG)"
+        verdict_color = "#10b981"
+        stop_loss = round(chan_stop, 2)
+        risk = max(2.0, ltp - stop_loss)
+        target_1 = round(ltp + (risk * 1.5), 2)
+        target_2 = round(ltp + (risk * 2.5), 2)
+        sl_pct_val = round((ltp - stop_loss) / ltp * 100, 1) if ltp > 0 else 0.0
+    else:
+        verdict_badge = "🔴 CHANDELIER EXIT / SHORT"
+        verdict_color = "#ef4444"
+        stop_loss = round(chan_stop, 2)
+        risk = max(2.0, stop_loss - ltp)
+        target_1 = round(ltp - (risk * 1.5), 2)
+        target_2 = round(ltp - (risk * 2.5), 2)
+        sl_pct_val = round((stop_loss - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
 
-    sl_pct_val = round((ltp - stop_loss) / ltp * 100, 1) if ltp > 0 else 0.0
-    t1_pct_val = round((target_1 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
-    t2_pct_val = round((target_2 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+    t1_pct_val = round(abs(target_1 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+    t2_pct_val = round(abs(target_2 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
     entry_high_val = ltp * 1.005
-    rr_num = round((target_2 - ltp) / max(1.0, (ltp - stop_loss)), 1)
+    rr_num = round(abs(target_2 - ltp) / max(1.0, risk), 1)
     risk_reward = f"1 : {rr_num}"
 
-    verdict_badge = "🟢 BUY CONFIRMED" if ltp > ema20_val else "🟡 ACCUMULATE"
-    verdict_color = "#10b981" if ltp > ema20_val else "#f59e0b"
+    # Header Card
+    st.markdown(f"""
+        <div class="neo-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span class="stock-title">{active_name}</span>
+                    <span class="badge-nse">{active_sym} | NSE/BSE</span>
+                </div>
+                <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
+                    {verdict_badge}
+                </div>
+            </div>
+            <div style="display:flex; align-items:baseline; margin-top:4px;">
+                <span class="price-large">₹{ltp_base:,.2f}</span>
+                <span class="{pill_class}">{sign}{chg_pts:,.2f} ({sign}{chg_pct:.2f}%)</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
     col_chart, col_advisor = st.columns([7.3, 2.7])
 
     with col_chart:
         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
 
+        # Candlesticks
         fig.add_trace(go.Candlestick(
             x=df_data.index, open=df_data['Open'], high=df_data['High'], low=df_data['Low'], close=df_data['Close'],
             name='Price'
         ), row=1, col=1)
 
-        fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.5), name='20 EMA'), row=1, col=1)
+        # 20 EMA
+        fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.2), name='20 EMA'), row=1, col=1)
 
+        # Chandelier Exit Trailing Stop Line (Period: 7, Mult: 2.0)
+        fig.add_trace(go.Scatter(
+            x=df_data.index,
+            y=df_data['Chandelier_Stop'],
+            line=dict(color='#10b981' if current_dir == 1 else '#ef4444', width=2, dash='dot'),
+            name='Chandelier SL (7, 2.0)'
+        ), row=1, col=1)
+
+        # Chandelier BUY Signals
         buys = df_data[df_data['Buy_Signal'].notna()]
         if not buys.empty:
             fig.add_trace(go.Scatter(
@@ -599,19 +698,20 @@ with tab_terminal:
                 text=['BUY'] * len(buys),
                 textposition='bottom center',
                 textfont=dict(color='#10b981', size=12, family="Arial Black"),
-                name='BUY'
+                name='Chandelier BUY'
             ), row=1, col=1)
 
+        # Chandelier SELL Signals
         sells = df_data[df_data['Sell_Signal'].notna()]
         if not sells.empty:
             fig.add_trace(go.Scatter(
                 x=sells.index, y=sells['Sell_Signal'],
                 mode='markers+text',
                 marker=dict(symbol='triangle-down', size=16, color='#ef4444', line=dict(width=1, color='white')),
-                text=['PROFIT BOOK'] * len(sells),
+                text=['SELL / EXIT'] * len(sells),
                 textposition='top center',
                 textfont=dict(color='#ef4444', size=12, family="Arial Black"),
-                name='PROFIT BOOK'
+                name='Chandelier EXIT'
             ), row=1, col=1)
 
         vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df_data.iterrows()]
@@ -642,27 +742,27 @@ with tab_terminal:
         advisor_html = f"""
         <div class="advisor-box">
             <div class="advisor-header">
-                🎯 AI Trade Execution Plan
+                🛡️ Chandelier (7, 2.0) Plan
             </div>
             <div class="level-row">
-                <span style="color:#94a3b8;">Signal Status</span>
+                <span style="color:#94a3b8;">Chandelier Trend</span>
                 <b style="color:{verdict_color};">{verdict_badge}</b>
             </div>
             <div class="level-row">
-                <span style="color:#94a3b8;">Entry Zone</span>
+                <span style="color:#94a3b8;">Entry Reference</span>
                 <b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b>
             </div>
             <div class="level-row">
-                <span style="color:#94a3b8;">Strict Stop-Loss (SL)</span>
-                <b style="color:#ef4444;">₹{stop_loss:,.2f} (-{sl_pct_val}%)</b>
+                <span style="color:#94a3b8;">Chandelier Trailing SL</span>
+                <b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b>
             </div>
             <div class="level-row">
-                <span style="color:#94a3b8;">Target 1 (Book 50%)</span>
-                <b style="color:#10b981;">₹{target_1:,.2f} (+{t1_pct_val}%)</b>
+                <span style="color:#94a3b8;">Target 1 (1.5x Risk)</span>
+                <b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b>
             </div>
             <div class="level-row">
-                <span style="color:#94a3b8;">Target 2 (Runner)</span>
-                <b style="color:#10b981;">₹{target_2:,.2f} (+{t2_pct_val}%)</b>
+                <span style="color:#94a3b8;">Target 2 (2.5x Risk)</span>
+                <b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b>
             </div>
             <div class="level-row" style="border-bottom:none;">
                 <span style="color:#94a3b8;">Risk-to-Reward</span>
@@ -675,22 +775,23 @@ with tab_terminal:
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
         my_budget = st.number_input("Capital to Deploy (₹):", min_value=1000, value=25000, step=5000)
         calc_qty = int(my_budget // ltp) if ltp > 0 else 0
-        total_risk = round(calc_qty * (ltp - stop_loss), 2)
+        total_risk = round(calc_qty * abs(ltp - stop_loss), 2)
 
         budget_html = f"""
         <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
             • <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
-            • <b>Risk at SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
+            • <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
         </div>
         """
         st.markdown(budget_html, unsafe_allow_html=True)
 
+    # Chandelier Specific Metrics
     m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
-    m2.metric("14-Day RSI", f"{rsi_val:.1f}")
-    m3.metric("Key Support", f"₹{support:,.2f}")
-    m4.metric("Key Resistance", f"₹{resistance:,.2f}")
-    m5.metric("Target 1 (50% Exit)", f"₹{target_1:,.2f}")
+    m1.metric("Chandelier Stop (7, 2.0)", f"₹{chan_stop:,.2f}")
+    m2.metric("ATR Volatility (7)", f"₹{atr_val:,.2f}")
+    m3.metric("Trend State", "BULLISH" if current_dir == 1 else "BEARISH")
+    m4.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
+    m5.metric("Target 1 (1.5x Risk)", f"₹{target_1:,.2f}")
 
 # ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
 with tab_watchlist:
@@ -710,22 +811,22 @@ with tab_watchlist:
         c_pct = q["change_pct"] or "-0.03%" if s_sym == "ICICIBANK" else "+1.01%"
 
         if c_price >= 400:
-            sig = "🟢 BUY"
+            sig = "🟢 BUY (LONG)"
             bullish_count += 1
         else:
             sig = "🟡 HOLD"
             bearish_count += 1
 
-        sl_calc = round(c_price * 0.985, 2)
-        tgt_calc = round(c_price * 1.025, 2)
+        sl_calc = round(c_price * 0.965, 2)
+        tgt_calc = round(c_price * 1.035, 2)
 
         w_rows.append({
             "Symbol": s_sym,
             "Company Name": s_name,
             "Live Price": f"₹{c_price:,.2f}",
             "1-Day Change": c_pct,
-            "Action Signal": sig,
-            "Stop-Loss": f"₹{sl_calc:,.2f}",
+            "Chandelier Signal": sig,
+            "Trailing Stop (SL)": f"₹{sl_calc:,.2f}",
             "Target 1": f"₹{tgt_calc:,.2f}"
         })
 
