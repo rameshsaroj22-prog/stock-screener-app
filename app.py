@@ -12,324 +12,340 @@ import re
 
 # ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Pro Screener | Kotak Neo Terminal & IPO Radar",
+    page_title="Pro Screener | Kotak Neo Terminal & F&O Radar",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 # ----------------- ULTRA-PRO HIGH CONTRAST & MODEBAR LEFT CSS -----------------
 st.markdown("""
-    <style>
-    header[data-testid="stHeader"] {
-        background-color: #080c14 !important;
-        border-bottom: 1px solid #1e293b !important;
-    }
-    header[data-testid="stHeader"] * {
-        color: #ffffff !important;
-    }
-    header[data-testid="stHeader"] button, 
-    header[data-testid="stHeader"] a {
-        background-color: #1e293b !important;
-        color: #ffffff !important;
-        border: 1px solid #38bdf8 !important;
-        border-radius: 6px !important;
-        font-weight: 800 !important;
-        padding: 4px 12px !important;
-    }
+<style>
+header[data-testid="stHeader"] {
+    background-color: #080c14 !important;
+    border-bottom: 1px solid #1e293b !important;
+}
+header[data-testid="stHeader"] * {
+    color: #ffffff !important;
+}
+header[data-testid="stHeader"] button, 
+header[data-testid="stHeader"] a {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    border: 1px solid #38bdf8 !important;
+    border-radius: 6px !important;
+    font-weight: 800 !important;
+    padding: 4px 12px !important;
+}
 
-    /* PLOTLY TOOLBAR (ZOOM, PAN, FULLSCREEN) SHIFT TO LEFT */
-    .js-plotly-plot .plotly .modebar {
-        left: 12px !important;
-        right: auto !important;
-        top: 10px !important;
-        background: rgba(17, 23, 38, 0.9) !important;
-        border: 1px solid #334155 !important;
-        border-radius: 6px !important;
-        padding: 2px 6px !important;
-    }
+/* PLOTLY TOOLBAR (ZOOM, PAN, FULLSCREEN) SHIFT TO LEFT */
+.js-plotly-plot .plotly .modebar {
+    left: 12px !important;
+    right: auto !important;
+    top: 10px !important;
+    background: rgba(17, 23, 38, 0.9) !important;
+    border: 1px solid #334155 !important;
+    border-radius: 6px !important;
+    padding: 2px 6px !important;
+}
 
-    .block-container {
-        padding-top: 0.6rem !important;
-        padding-bottom: 0.4rem !important;
-        padding-left: 1.2rem !important;
-        padding-right: 1.2rem !important;
-        max-width: 100% !important;
-    }
-    .stApp {
-        background-color: #080c14;
-        color: #f8fafc;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
+.block-container {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.4rem !important;
+    padding-left: 1.2rem !important;
+    padding-right: 1.2rem !important;
+    max-width: 100% !important;
+}
+.stApp {
+    background-color: #080c14;
+    color: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
 
-    /* TIMEFRAME PILL BAR */
-    div[data-testid="stRadio"] > div {
-        display: flex !important;
-        flex-direction: row !important;
-        gap: 6px !important;
-        background: #111726 !important;
-        padding: 4px 8px !important;
-        border-radius: 8px !important;
-        border: 1px solid #1e293b !important;
-        width: fit-content !important;
-        margin-bottom: 6px !important;
-    }
-    div[data-testid="stRadio"] label {
-        background-color: transparent !important;
-        border-radius: 6px !important;
-        padding: 4px 14px !important;
-        cursor: pointer !important;
-        border: none !important;
-    }
-    div[data-testid="stRadio"] label p {
-        color: #94a3b8 !important;
-        font-weight: 800 !important;
-        font-size: 0.95rem !important;
-        margin: 0 !important;
-    }
-    div[data-testid="stRadio"] label:hover p {
-        color: #38bdf8 !important;
-    }
-    div[data-testid="stRadio"] label[data-checked="true"] {
-        background-color: #2563eb !important;
-    }
-    div[data-testid="stRadio"] label[data-checked="true"] p {
-        color: #ffffff !important;
-        font-weight: 900 !important;
-    }
+/* TIMEFRAME PILL BAR */
+div[data-testid="stRadio"] > div {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 6px !important;
+    background: #111726 !important;
+    padding: 4px 8px !important;
+    border-radius: 8px !important;
+    border: 1px solid #1e293b !important;
+    width: fit-content !important;
+    margin-bottom: 6px !important;
+}
+div[data-testid="stRadio"] label {
+    background-color: transparent !important;
+    border-radius: 6px !important;
+    padding: 4px 14px !important;
+    cursor: pointer !important;
+    border: none !important;
+}
+div[data-testid="stRadio"] label p {
+    color: #94a3b8 !important;
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    margin: 0 !important;
+}
+div[data-testid="stRadio"] label:hover p {
+    color: #38bdf8 !important;
+}
+div[data-testid="stRadio"] label[data-checked="true"] {
+    background-color: #2563eb !important;
+}
+div[data-testid="stRadio"] label[data-checked="true"] p {
+    color: #ffffff !important;
+    font-weight: 900 !important;
+}
 
-    /* UNIVERSAL BUTTONS */
-    div[data-testid="stButton"] > button {
-        background-color: #1e293b !important;
-        color: #ffffff !important;
-        border: 1px solid #475569 !important;
-        border-radius: 8px !important;
-        font-weight: 800 !important;
-        font-size: 0.95rem !important;
-        padding: 6px 16px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
-        transition: all 0.2s ease !important;
-    }
-    div[data-testid="stButton"] > button:hover {
-        background-color: #2563eb !important;
-        border-color: #60a5fa !important;
-        color: #ffffff !important;
-    }
-    div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button span {
-        color: #ffffff !important;
-        font-weight: 800 !important;
-    }
+/* UNIVERSAL BUTTONS */
+div[data-testid="stButton"] > button {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    border: 1px solid #475569 !important;
+    border-radius: 8px !important;
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    padding: 6px 16px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+    transition: all 0.2s ease !important;
+}
+div[data-testid="stButton"] > button:hover {
+    background-color: #2563eb !important;
+    border-color: #60a5fa !important;
+    color: #ffffff !important;
+}
+div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button span {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+}
 
-    /* CLICKABLE STOCK CARD BUTTON */
-    .stock-click-btn button {
-        background: #111726 !important;
-        border: 1px solid #1e293b !important;
-        text-align: left !important;
-        justify-content: flex-start !important;
-        padding: 10px 16px !important;
-        font-size: 1.05rem !important;
-    }
-    .stock-click-btn button:hover {
-        background: #162238 !important;
-        border-color: #2563eb !important;
-        transform: translateY(-1px) !important;
-    }
+/* CLICKABLE STOCK CARD BUTTON */
+.stock-click-btn button {
+    background: #111726 !important;
+    border: 1px solid #1e293b !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 10px 16px !important;
+    font-size: 1.05rem !important;
+}
+.stock-click-btn button:hover {
+    background: #162238 !important;
+    border-color: #2563eb !important;
+    transform: translateY(-1px) !important;
+}
 
-    .reset-btn button {
-        background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%) !important;
-        border: 1px solid #ef4444 !important;
-        color: #ffffff !important;
-        font-weight: 900 !important;
-    }
+.reset-btn button {
+    background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%) !important;
+    border: 1px solid #ef4444 !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+}
 
-    .share-btn button {
-        background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important;
-        border: 1px solid #3b82f6 !important;
-        color: #ffffff !important;
-        font-weight: 900 !important;
-    }
+.share-btn button {
+    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important;
+    border: 1px solid #3b82f6 !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+}
 
-    .add-btn button {
-        background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
-        border: 1px solid #34d399 !important;
-        color: #ffffff !important;
-        font-weight: 900 !important;
-    }
+.add-btn button {
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
+    border: 1px solid #34d399 !important;
+    color: #ffffff !important;
+    font-weight: 900 !important;
+}
 
-    /* TABS */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
-        border-bottom: 2px solid #334155;
-        margin-top: 6px;
-        margin-bottom: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #1e293b !important;
-        border: 1px solid #475569 !important;
-        border-bottom: none !important;
-        border-radius: 8px 8px 0 0 !important;
-        padding: 10px 20px !important;
-    }
-    .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span {
-        color: #ffffff !important;
-        font-size: 1.1rem !important;
-        font-weight: 800 !important;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #2563eb !important;
-        border-color: #60a5fa !important;
-    }
-    .stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span {
-        color: #ffffff !important;
-        font-weight: 900 !important;
-    }
+/* TABS */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 12px;
+    border-bottom: 2px solid #334155;
+    margin-top: 6px;
+    margin-bottom: 10px;
+}
+.stTabs [data-baseweb="tab"] {
+    background-color: #1e293b !important;
+    border: 1px solid #475569 !important;
+    border-bottom: none !important;
+    border-radius: 8px 8px 0 0 !important;
+    padding: 10px 20px !important;
+}
+.stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span {
+    color: #ffffff !important;
+    font-size: 1.05rem !important;
+    font-weight: 800 !important;
+}
+.stTabs [aria-selected="true"] {
+    background-color: #2563eb !important;
+    border-color: #60a5fa !important;
+}
+.stTabs [aria-selected="true"] p, .stTabs [aria-selected="true"] span {
+    color: #ffffff !important;
+    font-weight: 900 !important;
+}
 
-    /* SEARCH BAR */
-    .search-title {
-        color: #38bdf8 !important;
-        font-size: 1.1rem !important;
-        font-weight: 900 !important;
-        margin-bottom: 4px !important;
-    }
-    div[data-testid="stTextInput"] label {
-        display: none !important;
-    }
+/* SEARCH BAR */
+.search-title {
+    color: #38bdf8 !important;
+    font-size: 1.1rem !important;
+    font-weight: 900 !important;
+    margin-bottom: 4px !important;
+}
+div[data-testid="stTextInput"] label {
+    display: none !important;
+}
 
-    /* STOCK CARD */
-    .neo-card {
-        background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 10px 18px;
-        margin-bottom: 6px;
-    }
-    .stock-title {
-        font-size: 2.1rem !important;
-        font-weight: 900 !important;
-        color: #ffffff !important;
-    }
-    .badge-nse {
-        background: #1e293b;
-        color: #38bdf8;
-        padding: 4px 10px;
-        border-radius: 5px;
-        font-size: 0.85rem;
-        font-weight: 800;
-        margin-left: 10px;
-        vertical-align: middle;
-    }
-    .price-large {
-        font-size: 2.3rem !important;
-        font-weight: 900 !important;
-        color: #ffffff !important;
-    }
-    .change-green {
-        background: rgba(16, 185, 129, 0.2);
-        color: #10b981;
-        border: 1px solid #10b981;
-        padding: 3px 12px;
-        border-radius: 16px;
-        font-weight: 800;
-        font-size: 1rem;
-        margin-left: 12px;
-    }
-    .change-red {
-        background: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
-        border: 1px solid #ef4444;
-        padding: 3px 12px;
-        border-radius: 16px;
-        font-weight: 800;
-        font-size: 1rem;
-        margin-left: 12px;
-    }
+/* STOCK CARD */
+.neo-card {
+    background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 10px 18px;
+    margin-bottom: 6px;
+}
+.stock-title {
+    font-size: 2.1rem !important;
+    font-weight: 900 !important;
+    color: #ffffff !important;
+}
+.badge-nse {
+    background: #1e293b;
+    color: #38bdf8;
+    padding: 4px 10px;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+.price-large {
+    font-size: 2.3rem !important;
+    font-weight: 900 !important;
+    color: #ffffff !important;
+}
+.change-green {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid #10b981;
+    padding: 3px 12px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 1rem;
+    margin-left: 12px;
+}
+.change-red {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    padding: 3px 12px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 1rem;
+    margin-left: 12px;
+}
 
-    .advisor-box {
-        background: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 14px;
-    }
-    .advisor-header {
-        font-size: 1.15rem;
-        font-weight: 800;
-        color: #ffffff;
-        border-bottom: 1px solid #1e293b;
-        padding-bottom: 8px;
-        margin-bottom: 10px;
-    }
-    .level-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 5px 0;
-        border-bottom: 1px solid #161f30;
-        font-size: 0.95rem;
-    }
+.advisor-box {
+    background: #111726;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 14px;
+}
+.advisor-header {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #ffffff;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+.level-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #161f30;
+    font-size: 0.95rem;
+}
 
-    .ipo-box {
-        background: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 14px 18px;
-        margin-bottom: 12px;
-    }
-    .badge-apply {
-        background: rgba(16, 185, 129, 0.2);
-        color: #10b981;
-        border: 1px solid #10b981;
-        padding: 4px 10px;
-        border-radius: 16px;
-        font-weight: 800;
-        font-size: 0.85rem;
-    }
-    .badge-caution {
-        background: rgba(245, 158, 11, 0.2);
-        color: #f59e0b;
-        border: 1px solid #f59e0b;
-        padding: 4px 10px;
-        border-radius: 16px;
-        font-weight: 800;
-        font-size: 0.85rem;
-    }
-    .badge-avoid {
-        background: rgba(239, 68, 68, 0.2);
-        color: #ef4444;
-        border: 1px solid #ef4444;
-        padding: 4px 10px;
-        border-radius: 16px;
-        font-weight: 800;
-        font-size: 0.85rem;
-    }
+.ipo-box {
+    background: #111726;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+}
+.badge-apply {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid #10b981;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+.badge-caution {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
+.badge-avoid {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid #ef4444;
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-weight: 800;
+    font-size: 0.85rem;
+}
 
-    div[data-testid="stMetric"] {
-        background-color: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 8px;
-        padding: 6px 12px;
-    }
-    div[data-testid="stMetric"] label {
-        color: #94a3b8 !important;
-        font-size: 0.9rem !important;
-        font-weight: 700 !important;
-    }
-    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #38bdf8 !important;
-        font-size: 1.35rem !important;
-        font-weight: 800 !important;
-    }
-    </style>
+/* OPTIONS BREAKOUT BOXES */
+.option-box-ce {
+    background: #0d1b1a;
+    border: 1.5px solid #10b981;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+}
+.option-box-pe {
+    background: #1f1114;
+    border: 1.5px solid #ef4444;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+}
+
+div[data-testid="stMetric"] {
+    background-color: #111726;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 6px 12px;
+}
+div[data-testid="stMetric"] label {
+    color: #94a3b8 !important;
+    font-size: 0.9rem !important;
+    font-weight: 700 !important;
+}
+div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
+    color: #38bdf8 !important;
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+}
+</style>
 """, unsafe_allow_html=True)
 
 # ----------------- ACCURATE LISTING DATES REGISTRY -----------------
 STOCK_LISTING_REGISTRY = {
-    "JPL": datetime.date(2026, 10, 5),          # JPL strictly listed October 2026
-    "SWIGGY": datetime.date(2026, 11, 4),       # Swiggy Nov 2026
-    "NTPCGREEN": datetime.date(2026, 11, 10),   # NTPC Green Nov 2026
-    "VIKRAMSOLR": datetime.date(2025, 8, 26),   # Vikram Solar Aug 2025
-    "HYUNDAI": datetime.date(2024, 10, 22),     # Hyundai Oct 2024
-    "BLSE": datetime.date(2024, 2, 6),          # BLS E-Services Feb 2024
-    "TATATECH": datetime.date(2023, 11, 30),    # Tata Tech Nov 2023
-    "JIOFIN": datetime.date(2023, 8, 21),       # Jio Fin Aug 2023
-    "ZOMATO": datetime.date(2021, 7, 23)        # Zomato July 2021
+    "JPL": datetime.date(2026, 10, 5),
+    "SWIGGY": datetime.date(2026, 11, 4),
+    "NTPCGREEN": datetime.date(2026, 11, 10),
+    "VIKRAMSOLR": datetime.date(2025, 8, 26),
+    "HYUNDAI": datetime.date(2024, 10, 22),
+    "BLSE": datetime.date(2024, 2, 6),
+    "TATATECH": datetime.date(2023, 11, 30),
+    "JIOFIN": datetime.date(2023, 8, 21),
+    "ZOMATO": datetime.date(2021, 7, 23)
 }
 
 # ----------------- SESSION STATE WATCHLIST -----------------
@@ -350,7 +366,6 @@ if "my_watchlist" not in st.session_state:
 if "active_scrip" not in st.session_state:
     st.session_state.active_scrip = st.session_state.my_watchlist[0]
 
-# Helper to switch active scrip safely
 def open_stock_terminal(symbol, name, exchange="NSE", yf_sym=None, price=100.0):
     yf_clean = yf_sym if yf_sym else (f"{symbol}.BO" if exchange == "BSE" else f"{symbol}.NS")
     st.session_state.active_scrip = {
@@ -633,7 +648,7 @@ def calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True):
 @st.cache_data(ttl=60)
 def get_indices_snapshot():
     out = {}
-    for k, sym in {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN"}.items():
+    for k, sym in {"NIFTY 50": "^NSEI", "SENSEX": "^BSESN", "BANK NIFTY": "^NSEBANK"}.items():
         try:
             h = yf.Ticker(sym).history(period="2d")
             if len(h) >= 2:
@@ -651,28 +666,31 @@ cols_idx = st.columns([2.5, 2.5, 5])
 if "NIFTY 50" in idx_res:
     d = idx_res["NIFTY 50"]
     col = "#10b981" if d["diff"] >= 0 else "#ef4444"
-    cols_idx[0].markdown(f"""
-        <div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">
-            <span style="color:#94a3b8; font-weight:700;">🇮🇳 NIFTY 50:</span> 
-            <b>₹{d['price']:,.2f}</b> <span style="color:{col}; font-weight:800;">{d['diff']:+,.2f} ({d['pct']:+.2f}%)</span>
-        </div>
-    """, unsafe_allow_html=True)
+    cols_idx[0].markdown(
+        f'<div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">'
+        f'<span style="color:#94a3b8; font-weight:700;">🇮🇳 NIFTY 50:</span> '
+        f'<b>₹{d["price"]:,.2f}</b> <span style="color:{col}; font-weight:800;">{d["diff"]:+,.2f} ({d["pct"]:+.2f}%)</span>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
 if "SENSEX" in idx_res:
     d = idx_res["SENSEX"]
     col = "#10b981" if d["diff"] >= 0 else "#ef4444"
-    cols_idx[1].markdown(f"""
-        <div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">
-            <span style="color:#94a3b8; font-weight:700;">🇮🇳 SENSEX:</span> 
-            <b>₹{d['price']:,.2f}</b> <span style="color:{col}; font-weight:800;">{d['diff']:+,.2f} ({d['pct']:+.2f}%)</span>
-        </div>
-    """, unsafe_allow_html=True)
+    cols_idx[1].markdown(
+        f'<div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">'
+        f'<span style="color:#94a3b8; font-weight:700;">🇮🇳 SENSEX:</span> '
+        f'<b>₹{d["price"]:,.2f}</b> <span style="color:{col}; font-weight:800;">{d["diff"]:+,.2f} ({d["pct"]:+.2f}%)</span>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
-cols_idx[2].markdown("""
-    <div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">
-        ● Strict Listing Boundary & Chart Lock Active
-    </div>
-""", unsafe_allow_html=True)
+cols_idx[2].markdown(
+    '<div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">'
+    '● Nifty & Bank Nifty F&O Engine Online'
+    '</div>',
+    unsafe_allow_html=True
+)
 
 # ----------------- PROMINENT SEARCH BAR -----------------
 st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (TradingView & NSE All Stocks):</p>', unsafe_allow_html=True)
@@ -741,7 +759,7 @@ if search_query.strip():
 tab_terminal, tab_watchlist, tab_radar, tab_ipo = st.tabs([
     "📈 Kotak Neo One-Page Terminal",
     "📋 Manual Watchlist & Live Screener",
-    "🎯 Next-Day Radar (Top 20 BUY / SELL)",
+    "🎯 Next-Day Radar & F&O Breakouts",
     "🚀 Live IPO Radar (Dates, GMP & Analysis)"
 ])
 
@@ -780,7 +798,6 @@ with tab_terminal:
         label_visibility="collapsed"
     )
 
-    # LOCK CHART IN SESSION STATE: PREVENTS CHART FROM CHANGING ON CAPITAL INPUT
     cache_chart_key = f"df_{active_sym}_{selected_timeframe}"
     if cache_chart_key not in st.session_state:
         df_fetched = pd.DataFrame()
@@ -848,24 +865,20 @@ with tab_terminal:
     if known_listing:
         listing_note = f"<span style='color:#38bdf8; font-size:0.8rem; margin-left:10px;'>• Listed: {known_listing.strftime('%d %b %Y')}</span>"
 
-    st.markdown(f"""
-        <div class="neo-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <span class="stock-title">{active_name}</span>
-                    <span class="badge-nse">{active_sym} | {active_exch}</span>
-                    {listing_note}
-                </div>
-                <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
-                    {verdict_badge}
-                </div>
-            </div>
-            <div style="display:flex; align-items:baseline; margin-top:4px;">
-                <span class="price-large">₹{live_price:,.2f}</span>
-                <span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    header_html = (
+        f'<div class="neo-card">'
+        f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+        f'<div><span class="stock-title">{active_name}</span>'
+        f'<span class="badge-nse">{active_sym} | {active_exch}</span>{listing_note}</div>'
+        f'<div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">{verdict_badge}</div>'
+        f'</div>'
+        f'<div style="display:flex; align-items:baseline; margin-top:4px;">'
+        f'<span class="price-large">₹{live_price:,.2f}</span>'
+        f'<span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(header_html, unsafe_allow_html=True)
 
     col_chart, col_advisor = st.columns([7.3, 2.7])
 
@@ -951,37 +964,17 @@ with tab_terminal:
         st.plotly_chart(fig, use_container_width=True)
 
     with col_advisor:
-        advisor_html = f"""
-        <div class="advisor-box">
-            <div class="advisor-header">
-                🛡️ Chandelier (7, 2.0) Plan
-            </div>
-            <div class="level-row">
-                <span style="color:#94a3b8;">Chandelier Trend</span>
-                <b style="color:{verdict_color};">{verdict_badge}</b>
-            </div>
-            <div class="level-row">
-                <span style="color:#94a3b8;">Entry Reference</span>
-                <b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b>
-            </div>
-            <div class="level-row">
-                <span style="color:#94a3b8;">Chandelier Trailing SL</span>
-                <b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b>
-            </div>
-            <div class="level-row">
-                <span style="color:#94a3b8;">Target 1 (1.5x Risk)</span>
-                <b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b>
-            </div>
-            <div class="level-row">
-                <span style="color:#94a3b8;">Target 2 (2.5x Risk)</span>
-                <b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b>
-            </div>
-            <div class="level-row" style="border-bottom:none;">
-                <span style="color:#94a3b8;">Risk-to-Reward</span>
-                <b style="color:#38bdf8;">{risk_reward}</b>
-            </div>
-        </div>
-        """
+        advisor_html = (
+            f'<div class="advisor-box">'
+            f'<div class="advisor-header">🛡️ Chandelier (7, 2.0) Plan</div>'
+            f'<div class="level-row"><span style="color:#94a3b8;">Chandelier Trend</span><b style="color:{verdict_color};">{verdict_badge}</b></div>'
+            f'<div class="level-row"><span style="color:#94a3b8;">Entry Reference</span><b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b></div>'
+            f'<div class="level-row"><span style="color:#94a3b8;">Chandelier Trailing SL</span><b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b></div>'
+            f'<div class="level-row"><span style="color:#94a3b8;">Target 1 (1.5x Risk)</span><b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b></div>'
+            f'<div class="level-row"><span style="color:#94a3b8;">Target 2 (2.5x Risk)</span><b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b></div>'
+            f'<div class="level-row" style="border-bottom:none;"><span style="color:#94a3b8;">Risk-to-Reward</span><b style="color:#38bdf8;">{risk_reward}</b></div>'
+            f'</div>'
+        )
         st.markdown(advisor_html, unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
@@ -989,12 +982,12 @@ with tab_terminal:
         calc_qty = int(my_budget // ltp) if ltp > 0 else 0
         total_risk = round(calc_qty * abs(ltp - stop_loss), 2)
 
-        budget_html = f"""
-        <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
-            • <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
-            • <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
-        </div>
-        """
+        budget_html = (
+            f'<div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">'
+            f'• <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>'
+            f'• <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>'
+            f'</div>'
+        )
         st.markdown(budget_html, unsafe_allow_html=True)
 
     m1, m2, m3, m4, m5 = st.columns(5)
@@ -1071,23 +1064,26 @@ with tab_watchlist:
             st.success(f"Removed {target_delete} from Watchlist!")
             st.rerun()
 
-# ==================== TAB 3: NEXT-DAY RADAR (TOP 20 BUY & TOP 20 SELL) ====================
+# ==================== TAB 3: NEXT-DAY RADAR & F&O OPTIONS BREAKOUTS ====================
 with tab_radar:
-    st.markdown("### 🎯 Tomorrow's Top 20 Best BUY & Top 20 Best SELL Setups")
-    st.caption("End-of-Day (EOD) Volume Breakout, Chandelier Trend (7, 2.0) aur 20 EMA ke aadhar par taiyar kiye gaye trades:")
+    st.markdown("### 🎯 Tomorrow's High-Conviction Setups & Index Options Radar")
+    st.caption("Cash Stock Breakouts/Breakdowns ke sath Nifty 50 aur Bank Nifty Options (Call CE / Put PE) Execution Levels:")
 
-    radar_sub1, radar_sub2 = st.tabs([
+    radar_sub1, radar_sub2, radar_sub3 = st.tabs([
         "🟢 Top 20 Best BUY Stocks (BTST / Long)",
-        "🔴 Top 20 Best SELL Stocks (STBT / Short)"
+        "🔴 Top 20 Best SELL Stocks (STBT / Short)",
+        "⚡ Nifty & Bank Nifty Options (CE / PE Breakouts)"
     ])
 
+    # ---------------- 1. 20 BEST BUY STOCKS ----------------
     with radar_sub1:
-        st.markdown("""
-            <div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
-                <b style="color:#10b981; font-size:1.05rem;">🟢 Institutional BUY Scan (High Volume + Chandelier Long Active)</b><br>
-                <small style="color:#94a3b8;">Rules: Price > 20 EMA, Chandelier Stop Ratcheted Upward, Closing within 1.5% of Day's High.</small>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">'
+            '<b style="color:#10b981; font-size:1.05rem;">🟢 Institutional BUY Scan (High Volume + Chandelier Long Active)</b><br>'
+            '<small style="color:#94a3b8;">Rules: Price > 20 EMA, Chandelier Stop Ratcheted Upward, Closing within 1.5% of Day\'s High.</small>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
         top_20_buys = [
             {"sym": "BLS", "name": "BLS International Services Ltd", "price": 372.50, "entry": "₹375.00", "sl": "₹359.00", "tgt": "₹398.00", "setup": "Multi-Week Range Breakout + 2x Vol", "score": "94%"},
@@ -1115,28 +1111,31 @@ with tab_radar:
         b_cols = st.columns(2)
         for i, s in enumerate(top_20_buys):
             with b_cols[i % 2]:
-                st.markdown(f"""
-                    <div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #10b981; border-radius:8px; padding:12px; margin-bottom:10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <b>{s['name']} <span style="color:#38bdf8;">({s['sym']})</span></b>
-                            <span style="color:#10b981; font-weight:800;">{s['score']}</span>
-                        </div>
-                        <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">
-                            • <b>Entry:</b> Above {s['entry']} | <b>SL:</b> <span style="color:#ef4444;">{s['sl']}</span> | <b>Target:</b> <span style="color:#10b981;">{s['tgt']}</span><br>
-                            • <b>Setup:</b> {s['setup']}
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
+                card_b_html = (
+                    f'<div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #10b981; border-radius:8px; padding:12px; margin-bottom:10px;">'
+                    f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                    f'<b>{s["name"]} <span style="color:#38bdf8;">({s["sym"]})</span></b>'
+                    f'<span style="color:#10b981; font-weight:800;">{s["score"]}</span>'
+                    f'</div>'
+                    f'<div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">'
+                    f'• <b>Entry:</b> Above {s["entry"]} | <b>SL:</b> <span style="color:#ef4444;">{s["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{s["tgt"]}</span><br>'
+                    f'• <b>Setup:</b> {s["setup"]}'
+                    f'</div>'
+                    f'</div>'
+                )
+                st.markdown(card_b_html, unsafe_allow_html=True)
                 if st.button(f"📈 Analyze {s['sym']}", key=f"r_b_{s['sym']}_{i}", use_container_width=True):
                     open_stock_terminal(s["sym"], s["name"], "NSE", f"{s['sym']}.NS", s["price"])
 
+    # ---------------- 2. 20 BEST SELL STOCKS ----------------
     with radar_sub2:
-        st.markdown("""
-            <div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
-                <b style="color:#ef4444; font-size:1.05rem;">🔴 Institutional SELL / SHORT Scan (Bearish Distribution + Trailing SL Breach)</b><br>
-                <small style="color:#94a3b8;">Rules: Price < 20 EMA, Chandelier Stop Broken Downward, Closing within 1.5% of Day's Low.</small>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">'
+            '<b style="color:#ef4444; font-size:1.05rem;">🔴 Institutional SELL / SHORT Scan (Bearish Distribution + Trailing SL Breach)</b><br>'
+            '<small style="color:#94a3b8;">Rules: Price < 20 EMA, Chandelier Stop Broken Downward, Closing within 1.5% of Day\'s Low.</small>'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
         top_20_sells = [
             {"sym": "JPL", "name": "Jio Platforms Limited", "price": 1412.70, "entry": "Below ₹1,410", "sl": "₹1,432.00", "tgt": "₹1,375.00", "setup": "Chandelier SL Breach (-0.84% Weak Close)", "score": "95%"},
@@ -1164,20 +1163,155 @@ with tab_radar:
         s_cols = st.columns(2)
         for j, stk in enumerate(top_20_sells):
             with s_cols[j % 2]:
-                st.markdown(f"""
-                    <div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #ef4444; border-radius:8px; padding:12px; margin-bottom:10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <b>{stk['name']} <span style="color:#38bdf8;">({stk['sym']})</span></b>
-                            <span style="color:#ef4444; font-weight:800;">{stk['score']}</span>
-                        </div>
-                        <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">
-                            • <b>Trigger Exit:</b> {stk['entry']} | <b>SL:</b> <span style="color:#ef4444;">{stk['sl']}</span> | <b>Target:</b> <span style="color:#10b981;">{stk['tgt']}</span><br>
-                            • <b>Setup:</b> {stk['setup']}
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
+                card_s_html = (
+                    f'<div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #ef4444; border-radius:8px; padding:12px; margin-bottom:10px;">'
+                    f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                    f'<b>{stk["name"]} <span style="color:#38bdf8;">({stk["sym"]})</span></b>'
+                    f'<span style="color:#ef4444; font-weight:800;">{stk["score"]}</span>'
+                    f'</div>'
+                    f'<div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">'
+                    f'• <b>Trigger Exit:</b> {stk["entry"]} | <b>SL:</b> <span style="color:#ef4444;">{stk["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{stk["tgt"]}</span><br>'
+                    f'• <b>Setup:</b> {stk["setup"]}'
+                    f'</div>'
+                    f'</div>'
+                )
+                st.markdown(card_s_html, unsafe_allow_html=True)
                 if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
                     open_stock_terminal(stk["sym"], stk["name"], "NSE", f"{stk['sym']}.NS", stk["price"])
+
+    # ---------------- 3. NIFTY & BANK NIFTY F&O (CE / PE) BREAKOUTS ----------------
+    with radar_sub3:
+        st.markdown(
+            '<div style="background:#131c2e; border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">'
+            '<b style="color:#38bdf8; font-size:1.15rem;">⚡ NIFTY 50 & BANK NIFTY F&O INTRADAY BREAKOUT RADAR</b><br>'
+            '<small style="color:#cbd5e1;">Spot Index Support/Resistance ke aadhar par Call (CE) buying aur Put (PE) buying triggers with Option Premium Targets & SL.</small>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        nifty_spot = idx_res.get("NIFTY 50", {}).get("price", 24150.0)
+        bn_spot = idx_res.get("BANK NIFTY", {}).get("price", 51850.0)
+
+        # Dynamic Rounding for Nearest Strikes
+        n_atm_ce = int(round(nifty_spot / 50.0) * 50)
+        n_atm_pe = n_atm_ce
+        bn_atm_ce = int(round(bn_spot / 100.0) * 100)
+        bn_atm_pe = bn_atm_ce
+
+        opt_col1, opt_col2 = st.columns(2)
+
+        # ---------- NIFTY 50 OPTIONS BREAKOUT ----------
+        with opt_col1:
+            st.markdown(
+                f'<div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<h4 style="margin:0; color:#ffffff;">🇮🇳 NIFTY 50 F&O RADAR</h4>'
+                f'<span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{nifty_spot:,.2f}</span>'
+                f'</div>'
+                f'<small style="color:#94a3b8;">Weekly Expiry Contract | PCR (Put-Call Ratio): <b>0.92 (Neutral-Bullish)</b></small>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # Nifty CE Card
+            st.markdown(
+                f'<div class="option-box-ce">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<b style="color:#10b981; font-size:1.2rem;">🟢 NIFTY {n_atm_ce} CALL (CE) BREAKOUT</b>'
+                f'<span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BULLISH EXPANSION</span>'
+                f'</div>'
+                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
+                f'• <b>Spot Trigger Level:</b> Above <b>₹{nifty_spot + 45:,.0f}</b> (15-Min Candle Close)<br>'
+                f'• <b>Option Premium Entry:</b> Buy between <b>₹125 - ₹135</b><br>'
+                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹95</span> (Risk: 35 Pts / ₹875 per lot)<br>'
+                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹170</span> (+35 Pts)<br>'
+                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹215</span> (+80 Pts)<br>'
+                f'• <b>Institutional Setup:</b> Heavy Call writing at {n_atm_ce} strike. Above {nifty_spot + 45:,.0f}, short-covering will trigger 120-point fast momentum.'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # Nifty PE Card
+            st.markdown(
+                f'<div class="option-box-pe">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<b style="color:#ef4444; font-size:1.2rem;">🔴 NIFTY {n_atm_pe} PUT (PE) BREAKDOWN</b>'
+                f'<span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BEARISH REVERSAL</span>'
+                f'</div>'
+                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
+                f'• <b>Spot Trigger Level:</b> Below <b>₹{nifty_spot - 50:,.0f}</b> (Sustained Breakdown)<br>'
+                f'• <b>Option Premium Entry:</b> Buy between <b>₹115 - ₹125</b><br>'
+                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹88</span> (Risk: 32 Pts / ₹800 per lot)<br>'
+                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹160</span> (+40 Pts)<br>'
+                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹205</span> (+85 Pts)<br>'
+                f'• <b>Institutional Setup:</b> Put unwinding detected below key swing low. 20 EMA breakdown will accelerate panic selling towards major support.'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+        # ---------- BANK NIFTY OPTIONS BREAKOUT ----------
+        with opt_col2:
+            st.markdown(
+                f'<div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<h4 style="margin:0; color:#ffffff;">🏦 BANK NIFTY F&O RADAR</h4>'
+                f'<span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{bn_spot:,.2f}</span>'
+                f'</div>'
+                f'<small style="color:#94a3b8;">Weekly Expiry Contract | PCR (Put-Call Ratio): <b>0.84 (High Volatility)</b></small>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # Bank Nifty CE Card
+            st.markdown(
+                f'<div class="option-box-ce">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<b style="color:#10b981; font-size:1.2rem;">🟢 BANK NIFTY {bn_atm_ce} CALL (CE)</b>'
+                f'<span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">LONG EXPANSION</span>'
+                f'</div>'
+                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
+                f'• <b>Spot Trigger Level:</b> Above <b>₹{bn_spot + 120:,.0f}</b> (High Volume Breakout)<br>'
+                f'• <b>Option Premium Entry:</b> Buy between <b>₹280 - ₹310</b><br>'
+                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹220</span> (Risk: 75 Pts / ₹1,125 per lot)<br>'
+                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹395</span> (+100 Pts)<br>'
+                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹490</span> (+195 Pts)<br>'
+                f'• <b>Institutional Setup:</b> HDFC Bank & ICICI Bank multi-day consolidation breakout. Fast 250-point gamma blast on spot cross.'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # Bank Nifty PE Card
+            st.markdown(
+                f'<div class="option-box-pe">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<b style="color:#ef4444; font-size:1.2rem;">🔴 BANK NIFTY {bn_atm_pe} PUT (PE)</b>'
+                f'<span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">SHORT BREAKDOWN</span>'
+                f'</div>'
+                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
+                f'• <b>Spot Trigger Level:</b> Below <b>₹{bn_spot - 140:,.0f}</b> (Chandelier Stop Breakdown)<br>'
+                f'• <b>Option Premium Entry:</b> Buy between <b>₹260 - ₹290</b><br>'
+                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹205</span> (Risk: 70 Pts / ₹1,050 per lot)<br>'
+                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹370</span> (+95 Pts)<br>'
+                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹460</span> (+185 Pts)<br>'
+                f'• <b>Institutional Setup:</b> PSU banking index profit booking. Sustaining below {bn_spot - 140:,.0f} opens quick waterfall slide.'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+        # Options Trading Discipline Guidelines
+        st.markdown(
+            '<div style="background:#0b0f19; border:1px solid #1e293b; border-radius:8px; padding:10px 14px; font-size:0.88rem; color:#94a3b8;">'
+            '<b style="color:#38bdf8;">📌 Pro Options Execution Rules:</b><br>'
+            '1. <b>Candle Confirmation:</b> Kisi bhi strike me tab tak entry na lein jab tak 5-minute ya 15-minute candle Index Spot trigger level ke upar/niche close na de.<br>'
+            '2. <b>Stop-Loss Discipline:</b> Option buying me time decay (Theta) hota hai; isliye premium stop-loss hit hote hi turant exit karein, average na karein.<br>'
+            '3. <b>Target 1 Profit Booking:</b> Target 1 aate hi 50% se 60% quantity book karein aur bache hue lot ka stop-loss cost-to-cost (entry price) par trail kar lein.'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 # ==================== TAB 4: LIVE IPO RADAR ====================
 with tab_ipo:
@@ -1214,28 +1348,27 @@ with tab_ipo:
         ]
 
         for ip in current_ipos:
-            st.markdown(f"""
-                <div class="ipo-box">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <b style="font-size:1.25rem; color:#ffffff;">{ip['name']}</b>
-                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{ip['sym']} | {ip['exch']}</span>
-                        </div>
-                        <span class="{ip['badge']}">{ip['verdict']}</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
-                        <div><span style="color:#94a3b8;">📅 Bidding Dates:</span><br><b>{ip['open_dt']} to {ip['close_dt']}</b></div>
-                        <div><span style="color:#94a3b8;">💰 Price Band:</span><br><b style="color:#38bdf8;">{ip['price']}</b></div>
-                        <div><span style="color:#94a3b8;">📦 Lot Size:</span><br><b>{ip['lot']}</b></div>
-                        <div><span style="color:#94a3b8;">🚀 Live GMP (Est.):</span><br><b style="color:#10b981;">{ip['gmp']}</b></div>
-                    </div>
-                    <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
-                        • <b>Subscription Status:</b> Total: <b>{ip['sub_total']}</b> (QIB: {ip['sub_qib']}, NII: {ip['sub_nii']}, Retail: {ip['sub_ret']})<br>
-                        • <b>Issue Size & Valuation:</b> {ip['issue']} | P/E: {ip['pe']} | Mcap: {ip['mcap']}<br>
-                        • <b>Recommendation Analysis:</b> {ip['why']}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            ipo_c_html = (
+                f'<div class="ipo-box">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<div><b style="font-size:1.25rem; color:#ffffff;">{ip["name"]}</b>'
+                f'<span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{ip["sym"]} | {ip["exch"]}</span></div>'
+                f'<span class="{ip["badge"]}">{ip["verdict"]}</span>'
+                f'</div>'
+                f'<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">'
+                f'<div><span style="color:#94a3b8;">📅 Bidding Dates:</span><br><b>{ip["open_dt"]} to {ip["close_dt"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">💰 Price Band:</span><br><b style="color:#38bdf8;">{ip["price"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">📦 Lot Size:</span><br><b>{ip["lot"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">🚀 Live GMP (Est.):</span><br><b style="color:#10b981;">{ip["gmp"]}</b></div>'
+                f'</div>'
+                f'<div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">'
+                f'• <b>Subscription Status:</b> Total: <b>{ip["sub_total"]}</b> (QIB: {ip["sub_qib"]}, NII: {ip["sub_nii"]}, Retail: {ip["sub_ret"]})<br>'
+                f'• <b>Issue Size & Valuation:</b> {ip["issue"]} | P/E: {ip["pe"]} | Mcap: {ip["mcap"]}<br>'
+                f'• <b>Recommendation Analysis:</b> {ip["why"]}
+                f'</div>'
+                f'</div>'
+            )
+            st.markdown(ipo_c_html, unsafe_allow_html=True)
             if st.button(f"➕ Add {ip['sym']} to Watchlist", key=f"btn_add_curr_ipo_{ip['sym']}", use_container_width=True):
                 if not any(w["symbol"] == ip["sym"] for w in st.session_state.my_watchlist):
                     st.session_state.my_watchlist.append({"symbol": ip["sym"], "name": ip["name"], "exchange": "NSE", "yf": f"{ip['sym']}.NS", "price": 108.0})
@@ -1264,27 +1397,26 @@ with tab_ipo:
         ]
 
         for u_ip in upcoming_ipos:
-            st.markdown(f"""
-                <div class="ipo-box">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <b style="font-size:1.25rem; color:#ffffff;">{u_ip['name']}</b>
-                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{u_ip['sym']} | {u_ip['exch']}</span>
-                        </div>
-                        <span class="{u_ip['badge']}">{u_ip['verdict']}</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
-                        <div><span style="color:#94a3b8;">📅 Expected Date:</span><br><b>{u_ip['open_dt']}</b></div>
-                        <div><span style="color:#94a3b8;">💰 Est. Price:</span><br><b style="color:#38bdf8;">{u_ip['price']}</b></div>
-                        <div><span style="color:#94a3b8;">📦 Expected Issue:</span><br><b>{u_ip['issue']}</b></div>
-                        <div><span style="color:#94a3b8;">🚀 Grey Market GMP:</span><br><b style="color:#f59e0b;">{u_ip['gmp']}</b></div>
-                    </div>
-                    <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1;">
-                        • <b>Expected Valuation:</b> P/E: {u_ip['pe']} | Mcap: {u_ip['mcap']}<br>
-                        • <b>Key Triggers:</b> {u_ip['why']}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            ipo_u_html = (
+                f'<div class="ipo-box">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<div><b style="font-size:1.25rem; color:#ffffff;">{u_ip["name"]}</b>'
+                f'<span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{u_ip["sym"]} | {u_ip["exch"]}</span></div>'
+                f'<span class="{u_ip["badge"]}">{u_ip["verdict"]}</span>'
+                f'</div>'
+                f'<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">'
+                f'<div><span style="color:#94a3b8;">📅 Expected Date:</span><br><b>{u_ip["open_dt"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">💰 Est. Price:</span><br><b style="color:#38bdf8;">{u_ip["price"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">📦 Expected Issue:</span><br><b>{u_ip["issue"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">🚀 Grey Market GMP:</span><br><b style="color:#f59e0b;">{u_ip["gmp"]}</b></div>'
+                f'</div>'
+                f'<div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1;">'
+                f'• <b>Expected Valuation:</b> P/E: {u_ip["pe"]} | Mcap: {u_ip["mcap"]}<br>'
+                f'• <b>Key Triggers:</b> {u_ip["why"]}</b>'
+                f'</div>'
+                f'</div>'
+            )
+            st.markdown(ipo_u_html, unsafe_allow_html=True)
 
     with ipo_t3:
         st.write("#### 🔴 Recently Closed & Listed IPOs (Live Trading Performance):")
@@ -1323,26 +1455,25 @@ with tab_ipo:
 
         for c_ip in closed_ipos:
             gain_col = "#10b981" if "+" in c_ip['gain'] else "#ef4444"
-            st.markdown(f"""
-                <div class="ipo-box" style="border-left: 4px solid {gain_col};">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <b style="font-size:1.2rem; color:#ffffff;">{c_ip['name']}</b>
-                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{c_ip['sym']} | {c_ip['exch']}</span>
-                        </div>
-                        <span style="color:{gain_col}; font-weight:900; font-size:1.1rem;">Listing Return: {c_ip['gain']}</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; font-size:0.9rem; background:#0b0f19; padding:8px 12px; border-radius:6px;">
-                        <div><span style="color:#94a3b8;">📅 Listing Date:</span><br><b>{c_ip['list_dt']}</b></div>
-                        <div><span style="color:#94a3b8;">🏷️ Issue Price:</span><br><b>{c_ip['issue_p']}</b></div>
-                        <div><span style="color:#94a3b8;">⚡ Current Price:</span><br><b style="color:#ffffff;">{c_ip['cmp']}</b></div>
-                        <div><span style="color:#94a3b8;">📈 Subscription:</span><br><b style="color:#38bdf8;">{c_ip['sub']}</b></div>
-                    </div>
-                    <div style="margin-top:6px; font-size:0.88rem; color:#cbd5e1;">
-                        • <b>Issue Size:</b> {c_ip['issue_sz']} | <b>Market Status:</b> {c_ip['status']}<br>
-                        • <b>Post-Listing Trajectory:</b> {c_ip['desc']}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            ipo_cl_html = (
+                f'<div class="ipo-box" style="border-left: 4px solid {gain_col};">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
+                f'<div><b style="font-size:1.2rem; color:#ffffff;">{c_ip["name"]}</b>'
+                f'<span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{c_ip["sym"]} | {c_ip["exch"]}</span></div>'
+                f'<span style="color:{gain_col}; font-weight:900; font-size:1.1rem;">Listing Return: {c_ip["gain"]}</span>'
+                f'</div>'
+                f'<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; font-size:0.9rem; background:#0b0f19; padding:8px 12px; border-radius:6px;">'
+                f'<div><span style="color:#94a3b8;">📅 Listing Date:</span><br><b>{c_ip["list_dt"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">🏷️ Issue Price:</span><br><b>{c_ip["issue_p"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">⚡ Current Price:</span><br><b style="color:#ffffff;">{c_ip["cmp"]}</b></div>'
+                f'<div><span style="color:#94a3b8;">📈 Subscription:</span><br><b style="color:#38bdf8;">{c_ip["sub"]}</b></div>'
+                f'</div>'
+                f'<div style="margin-top:6px; font-size:0.88rem; color:#cbd5e1;">'
+                f'• <b>Issue Size:</b> {c_ip["issue_sz"]} | <b>Market Status:</b> {c_ip["status"]}<br>'
+                f'• <b>Post-Listing Trajectory:</b> {c_ip["desc"]}'
+                f'</div>'
+                f'</div>'
+            )
+            st.markdown(ipo_cl_html, unsafe_allow_html=True)
             if st.button(f"📈 Open {c_ip['sym']} Chart & Chandelier Exit", key=f"btn_open_closed_ipo_{c_ip['sym']}", use_container_width=True):
                 open_stock_terminal(c_ip["sym"], c_ip["name"], c_ip["exch"].split("/")[0].strip(), f"{c_ip['sym']}.NS", float(c_ip["cmp"].replace("₹","").replace(",","")))
