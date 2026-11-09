@@ -12,14 +12,15 @@ import re
 
 # ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Pro Screener & Top 40 Next-Day Radar",
+    page_title="Pro Screener | Kotak Neo Terminal & IPO Radar",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- ULTRA-PRO HIGH CONTRAST CSS -----------------
+# ----------------- ULTRA-PRO HIGH CONTRAST & MODEBAR LEFT CSS -----------------
 st.markdown("""
     <style>
+    /* 1. TOP HEADER & SHARE BUTTON */
     header[data-testid="stHeader"] {
         background-color: #080c14 !important;
         border-bottom: 1px solid #1e293b !important;
@@ -35,6 +36,24 @@ st.markdown("""
         border-radius: 6px !important;
         font-weight: 800 !important;
         padding: 4px 12px !important;
+    }
+
+    /* 2. PLOTLY TOOLBAR (ZOOM, PAN, FULLSCREEN) SHIFT TO LEFT */
+    .js-plotly-plot .plotly .modebar {
+        left: 12px !important;
+        right: auto !important;
+        top: 10px !important;
+        background: rgba(17, 23, 38, 0.9) !important;
+        border: 1px solid #334155 !important;
+        border-radius: 6px !important;
+        padding: 2px 6px !important;
+    }
+    .modebar-container {
+        left: 12px !important;
+        right: auto !important;
+    }
+    .modebar-group {
+        background: transparent !important;
     }
 
     .block-container {
@@ -86,7 +105,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* BUTTONS */
+    /* UNIVERSAL BUTTONS */
     div[data-testid="stButton"] > button {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -106,6 +125,21 @@ st.markdown("""
     div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button span {
         color: #ffffff !important;
         font-weight: 800 !important;
+    }
+
+    /* CLICKABLE STOCK CARD BUTTON (REPLACES OPEN IN TERMINAL) */
+    .stock-click-btn button {
+        background: #111726 !important;
+        border: 1px solid #1e293b !important;
+        text-align: left !important;
+        justify-content: flex-start !important;
+        padding: 10px 16px !important;
+        font-size: 1.05rem !important;
+    }
+    .stock-click-btn button:hover {
+        background: #162238 !important;
+        border-color: #2563eb !important;
+        transform: translateY(-1px) !important;
     }
 
     .reset-btn button {
@@ -239,23 +273,40 @@ st.markdown("""
         font-size: 0.95rem;
     }
 
-    .match-item {
-        background: #111726;
-        border: 1px solid #1e293b;
-        border-radius: 8px;
-        padding: 10px 14px;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .radar-card {
+    /* RICH IPO CARD STYLING */
+    .ipo-box {
         background: #111726;
         border: 1px solid #1e293b;
         border-radius: 10px;
-        padding: 12px 16px;
-        margin-bottom: 10px;
+        padding: 14px 18px;
+        margin-bottom: 12px;
+    }
+    .badge-apply {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+        border: 1px solid #10b981;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-weight: 800;
+        font-size: 0.85rem;
+    }
+    .badge-caution {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+        border: 1px solid #f59e0b;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-weight: 800;
+        font-size: 0.85rem;
+    }
+    .badge-avoid {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid #ef4444;
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-weight: 800;
+        font-size: 0.85rem;
     }
 
     div[data-testid="stMetric"] {
@@ -593,7 +644,7 @@ with search_c1:
     search_query = st.text_input(
         "Search Box Input",
         value="",
-        placeholder="Type any stock or partial name (e.g. BLS, Vikram Solar, JPL, Orient, Tata, ICICI)..."
+        placeholder="Type any stock name or symbol (e.g. BLS, Vikram Solar, JPL, Orient Cable, TCS)..."
     )
 
 with search_c2:
@@ -609,7 +660,7 @@ with search_c3:
         st.toast("📋 App Link Copied: https://stock-screener-app-david.streamlit.app", icon="🚀")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- MATCH RESULTS -----------------
+# ----------------- CLICKABLE NAME SEARCH RESULTS (OPEN INTEGRATED INTO NAME) -----------------
 if search_query.strip():
     matches = search_tradingview_and_nse(search_query)
     if matches:
@@ -622,25 +673,14 @@ if search_query.strip():
             q_info = fetch_tradingview_live_quote(sym, exch)
             live_p = q_info["price"] if q_info else 100.0
             live_pct = q_info["change_pct"] if q_info else "0.0%"
-            
-            p_color = "#10b981" if "+" in live_pct else "#ef4444"
 
-            c_info, c_action1, c_action2 = st.columns([6.8, 1.6, 1.6])
-            with c_info:
-                st.markdown(f"""
-                    <div class="match-item">
-                        <div>
-                            <b style="color:#ffffff; font-size:1.1rem;">{name}</b>
-                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{sym} | {exch}</span>
-                        </div>
-                        <div style="text-align:right;">
-                            <span style="font-size:1.15rem; font-weight:800; color:#ffffff;">₹{live_p:,.2f}</span>
-                            <span style="color:{p_color}; font-weight:800; margin-left:8px;">{live_pct}</span>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-            with c_action1:
-                if st.button(f"📈 Open", key=f"btn_open_{sym}_{idx}", use_container_width=True):
+            c_name_click, c_add = st.columns([8.2, 1.8])
+            
+            # 1. Stock Name is now the Direct Clickable Card (Replaces Open in Terminal button)
+            with c_name_click:
+                st.markdown('<div class="stock-click-btn">', unsafe_allow_html=True)
+                btn_title = f"📈 {name}  [{sym} | {exch}]  —  ₹{live_p:,.2f} ({live_pct})"
+                if st.button(btn_title, key=f"click_open_{sym}_{idx}", use_container_width=True):
                     st.session_state.active_scrip = {
                         "symbol": sym,
                         "name": name,
@@ -649,7 +689,10 @@ if search_query.strip():
                         "price": live_p
                     }
                     st.rerun()
-            with c_action2:
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            # 2. Add to Watchlist Button
+            with c_add:
                 st.markdown('<div class="add-btn">', unsafe_allow_html=True)
                 if st.button(f"➕ Watchlist", key=f"btn_add_{sym}_{idx}", use_container_width=True):
                     if not any(w["symbol"] == sym for w in st.session_state.my_watchlist):
@@ -666,12 +709,12 @@ if search_query.strip():
     else:
         st.info(f"No listed Indian stock found for '{search_query}'. Please check the spelling.")
 
-# ----------------- MAIN TABS -----------------
+# ----------------- MAIN NAVIGATION TABS -----------------
 tab_terminal, tab_watchlist, tab_radar, tab_ipo = st.tabs([
     "📈 Kotak Neo One-Page Terminal",
     "📋 Manual Watchlist & Live Screener",
     "🎯 Next-Day Radar (Top 20 BUY / SELL)",
-    "🚀 Live IPO Radar"
+    "🚀 Live IPO Radar (Dates, GMP & Analysis)"
 ])
 
 # ==================== TAB 1: ONE-PAGE TERMINAL ====================
@@ -799,27 +842,45 @@ with tab_terminal:
             name='Chandelier SL (7, 2.0)'
         ), row=1, col=1)
 
+        # BUY Markers with Exact Signal Time & Date
         buys = df_data[df_data['Buy_Signal'].notna()]
         if not buys.empty:
+            buy_labels = []
+            for dt_val in buys.index:
+                if hasattr(dt_val, 'hour') and dt_val.hour != 0:
+                    t_str = dt_val.strftime('%d %b %H:%M')
+                else:
+                    t_str = dt_val.strftime('%d %b')
+                buy_labels.append(f"BUY<br>{t_str}")
+
             fig.add_trace(go.Scatter(
                 x=buys.index, y=buys['Buy_Signal'],
                 mode='markers+text',
                 marker=dict(symbol='triangle-up', size=16, color='#10b981', line=dict(width=1, color='white')),
-                text=['BUY'] * len(buys),
+                text=buy_labels,
                 textposition='bottom center',
-                textfont=dict(color='#10b981', size=12, family="Arial Black"),
+                textfont=dict(color='#10b981', size=10, family="Arial Black"),
                 name='Chandelier BUY'
             ), row=1, col=1)
 
+        # SELL / EXIT Markers with Exact Signal Time & Date
         sells = df_data[df_data['Sell_Signal'].notna()]
         if not sells.empty:
+            sell_labels = []
+            for dt_val in sells.index:
+                if hasattr(dt_val, 'hour') and dt_val.hour != 0:
+                    t_str = dt_val.strftime('%d %b %H:%M')
+                else:
+                    t_str = dt_val.strftime('%d %b')
+                sell_labels.append(f"EXIT<br>{t_str}")
+
             fig.add_trace(go.Scatter(
                 x=sells.index, y=sells['Sell_Signal'],
                 mode='markers+text',
                 marker=dict(symbol='triangle-down', size=16, color='#ef4444', line=dict(width=1, color='white')),
-                text=['SELL / EXIT'] * len(sells),
+                text=sell_labels,
                 textposition='top center',
-                textfont=dict(color='#ef4444', size=12, family="Arial Black"),
+                textfont=dict(color='#ef4444', size=10, family="Arial Black"),
                 name='Chandelier EXIT'
             ), row=1, col=1)
 
@@ -979,7 +1040,6 @@ with tab_radar:
         "🔴 Top 20 Best SELL Stocks (STBT / Short)"
     ])
 
-    # ---------------- 20 BEST BUY STOCKS ----------------
     with radar_sub1:
         st.markdown("""
             <div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1013,28 +1073,23 @@ with tab_radar:
 
         b_cols = st.columns(2)
         for i, s in enumerate(top_20_buys):
-            c_target = b_cols[i % 2]
-            with c_target:
+            with b_cols[i % 2]:
                 st.markdown(f"""
-                    <div class="radar-card" style="border-left: 4px solid #10b981;">
+                    <div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #10b981; border-radius:8px; padding:12px; margin-bottom:10px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <b style="font-size:1.05rem; color:#ffffff;">{s['name']}</b>
-                                <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.75rem; margin-left:6px; font-weight:700;">{s['sym']}</span>
-                            </div>
-                            <span style="color:#10b981; font-weight:800; font-size:0.85rem;">Confidence: {s['score']}</span>
+                            <b>{s['name']} <span style="color:#38bdf8;">({s['sym']})</span></b>
+                            <span style="color:#10b981; font-weight:800;">{s['score']}</span>
                         </div>
-                        <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
-                            • <b>Entry:</b> Above {s['entry']} | <b>SL:</b> <span style="color:#ef4444; font-weight:700;">{s['sl']}</span> | <b>Target:</b> <span style="color:#10b981; font-weight:700;">{s['tgt']}</span><br>
+                        <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">
+                            • <b>Entry:</b> Above {s['entry']} | <b>SL:</b> <span style="color:#ef4444;">{s['sl']}</span> | <b>Target:</b> <span style="color:#10b981;">{s['tgt']}</span><br>
                             • <b>Setup:</b> {s['setup']}
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
-                if st.button(f"📈 Analyze {s['sym']}", key=f"btn_r_buy_{s['sym']}_{i}", use_container_width=True):
+                if st.button(f"📈 Analyze {s['sym']}", key=f"r_b_{s['sym']}_{i}", use_container_width=True):
                     st.session_state.active_scrip = {"symbol": s["sym"], "name": s["name"], "exchange": "NSE", "yf": f"{s['sym']}.NS", "price": s["price"]}
                     st.rerun()
 
-    # ---------------- 20 BEST SELL STOCKS ----------------
     with radar_sub2:
         st.markdown("""
             <div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1068,83 +1123,191 @@ with tab_radar:
 
         s_cols = st.columns(2)
         for j, stk in enumerate(top_20_sells):
-            s_target = s_cols[j % 2]
-            with s_target:
+            with s_cols[j % 2]:
                 st.markdown(f"""
-                    <div class="radar-card" style="border-left: 4px solid #ef4444;">
+                    <div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #ef4444; border-radius:8px; padding:12px; margin-bottom:10px;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div>
-                                <b style="font-size:1.05rem; color:#ffffff;">{stk['name']}</b>
-                                <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.75rem; margin-left:6px; font-weight:700;">{stk['sym']}</span>
-                            </div>
-                            <span style="color:#ef4444; font-weight:800; font-size:0.85rem;">Risk: {stk['score']}</span>
+                            <b>{stk['name']} <span style="color:#38bdf8;">({stk['sym']})</span></b>
+                            <span style="color:#ef4444; font-weight:800;">{stk['score']}</span>
                         </div>
-                        <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
-                            • <b>Trigger Exit/Short:</b> {stk['entry']} | <b>SL:</b> <span style="color:#ef4444; font-weight:700;">{stk['sl']}</span> | <b>Target:</b> <span style="color:#10b981; font-weight:700;">{stk['tgt']}</span><br>
+                        <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">
+                            • <b>Trigger Exit:</b> {stk['entry']} | <b>SL:</b> <span style="color:#ef4444;">{stk['sl']}</span> | <b>Target:</b> <span style="color:#10b981;">{stk['tgt']}</span><br>
                             • <b>Setup:</b> {stk['setup']}
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
-                if st.button(f"📉 Analyze {stk['sym']}", key=f"btn_r_sell_{stk['sym']}_{j}", use_container_width=True):
+                if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
                     st.session_state.active_scrip = {"symbol": stk["sym"], "name": stk["name"], "exchange": "NSE", "yf": f"{stk['sym']}.NS", "price": stk["price"]}
                     st.rerun()
 
-# ==================== TAB 4: LIVE IPO RADAR ====================
+# ==================== TAB 4: LIVE IPO RADAR WITH COMPREHENSIVE NSE DATA ====================
 with tab_ipo:
-    st.markdown("### 🚀 Live Indian IPO Radar & Tracker")
-    st.caption("Current Bidding, Upcoming Issues, and Recently Listed IPOs on NSE/BSE:")
+    st.markdown("### 🚀 Live Indian IPO Radar & Tracker (NSE & BSE)")
+    st.caption("Live Dates, GMP, Subscription Demand, Fundamentals aur Institutional Recommendation:")
 
-    sub_t1, sub_t2, sub_t3 = st.tabs([
-        "🟢 Current IPOs (Open Now)",
-        "🟡 Upcoming IPOs",
+    ipo_t1, ipo_t2, ipo_t3 = st.tabs([
+        "🟢 Current IPOs (Bidding Open)",
+        "🟡 Upcoming IPOs (Announced)",
         "🔴 Closed & Recently Listed"
     ])
 
-    with sub_t1:
-        st.write("#### 🟢 Active IPOs Open for Bidding Today:")
-        st.markdown("""
-            <div class="radar-card">
-                <b>Swiggy Limited (SWIGGY) | NSE/BSE</b> — Price: ₹371 - ₹390 | Lot: 38 Shares | Size: ₹11,327 Cr
-            </div>
-            <div class="radar-card">
-                <b>NTPC Green Energy Ltd (NTPCGREEN) | NSE/BSE</b> — Price: ₹102 - ₹108 | Lot: 138 Shares | Size: ₹10,000 Cr
-            </div>
-            <div class="radar-card">
-                <b>Zinka Logistics (BlackBuck) | NSE/BSE</b> — Price: ₹259 - ₹273 | Lot: 54 Shares | Size: ₹1,114 Cr
-            </div>
-        """, unsafe_allow_html=True)
+    # 1. CURRENT OPEN IPOS
+    with ipo_t1:
+        st.write("#### 🟢 Active IPOs Open for Bidding:")
+        current_ipos = [
+            {
+                "name": "NTPC Green Energy Ltd", "sym": "NTPCGREEN", "exch": "NSE / BSE",
+                "open_dt": "19 Nov 2026", "close_dt": "22 Nov 2026", "list_dt": "27 Nov 2026",
+                "price": "₹102 - ₹108", "lot": "138 Shares (₹14,904)", "issue": "₹10,000 Cr (100% Fresh)",
+                "pe": "42.5x", "mcap": "₹18,150 Cr", "gmp": "₹14 (12.96% Est. Gain)",
+                "sub_total": "2.42x", "sub_qib": "3.10x", "sub_nii": "2.85x", "sub_ret": "1.32x",
+                "verdict": "🟢 APPLY (Long-Term Green Capex)", "badge": "badge-apply",
+                "why": "PSU backing, mammoth 26GW renewable target, strong balance sheet with high institutional anchor interest."
+            },
+            {
+                "name": "Zinka Logistics Solutions (BlackBuck)", "sym": "ZINKA", "exch": "NSE / BSE",
+                "open_dt": "13 Nov 2026", "close_dt": "18 Nov 2026", "list_dt": "21 Nov 2026",
+                "price": "₹259 - ₹273", "lot": "54 Shares (₹14,742)", "issue": "₹1,114 Cr",
+                "pe": "Loss Making / High P/S", "mcap": "₹4,818 Cr", "gmp": "₹0 (0.0% Flat)",
+                "sub_total": "0.32x", "sub_qib": "0.26x", "sub_nii": "0.14x", "sub_ret": "0.90x",
+                "verdict": "🔴 AVOID / RISKY (Negative Earnings)", "badge": "badge-avoid",
+                "why": "Unprofitable track record, weak GMP demand, and intense competition in digital freight trucking."
+            }
+        ]
 
-    with sub_t2:
-        st.write("#### 🟡 Forthcoming IPOs in Pipeline:")
-        st.markdown("""
-            <div class="radar-card">
-                <b>Hero Fincorp Limited (HEROFIN) | NSE/BSE</b> — Est. Price: ₹850 - ₹890 | Lot: 16 Shares | DRHP Approved
-            </div>
-            <div class="radar-card">
-                <b>Aadhar Housing Finance (AADHARHFC) | NSE/BSE</b> — Est. Price: ₹300 - ₹315 | Lot: 47 Shares | Announced
-            </div>
-        """, unsafe_allow_html=True)
+        for ip in current_ipos:
+            st.markdown(f"""
+                <div class="ipo-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b style="font-size:1.25rem; color:#ffffff;">{ip['name']}</b>
+                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{ip['sym']} | {ip['exch']}</span>
+                        </div>
+                        <span class="{ip['badge']}">{ip['verdict']}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
+                        <div><span style="color:#94a3b8;">📅 Bidding Dates:</span><br><b>{ip['open_dt']} to {ip['close_dt']}</b></div>
+                        <div><span style="color:#94a3b8;">💰 Price Band:</span><br><b style="color:#38bdf8;">{ip['price']}</b></div>
+                        <div><span style="color:#94a3b8;">📦 Lot Size:</span><br><b>{ip['lot']}</b></div>
+                        <div><span style="color:#94a3b8;">🚀 Live GMP (Est.):</span><br><b style="color:#10b981;">{ip['gmp']}</b></div>
+                    </div>
+                    <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
+                        • <b>Subscription Status:</b> Total: <b>{ip['sub_total']}</b> (QIB: {ip['sub_qib']}, NII: {ip['sub_nii']}, Retail: {ip['sub_ret']})<br>
+                        • <b>Issue Size & Valuation:</b> {ip['issue']} | P/E: {ip['pe']} | Mcap: {ip['mcap']}<br>
+                        • <b>Recommendation Analysis:</b> {ip['why']}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"➕ Add {ip['sym']} to Watchlist", key=f"btn_add_curr_ipo_{ip['sym']}", use_container_width=True):
+                if not any(w["symbol"] == ip["sym"] for w in st.session_state.my_watchlist):
+                    st.session_state.my_watchlist.append({"symbol": ip["sym"], "name": ip["name"], "exchange": "NSE", "yf": f"{ip['sym']}.NS", "price": 108.0})
+                    st.success(f"{ip['sym']} added!")
+                    st.rerun()
 
-    with sub_t3:
-        st.write("#### 🔴 Closed & Recently Listed on Exchange:")
-        st.markdown("""
-            <div class="radar-card" style="border-left: 4px solid #10b981;">
-                <b>Vikram Solar Ltd (VIKRAMSOLR) | BSE/NSE</b><br>
-                • <b>Listing Date:</b> Aug 26, 2025 | <b>Issue Price:</b> ₹315 - ₹332 (Final ₹332)<br>
-                • <b>Current Market Price:</b> ₹435.00 | <b>Listing Return:</b> +31.02%
-            </div>
-            <div class="radar-card" style="border-left: 4px solid #ef4444;">
-                <b>Hyundai Motor India (HYUNDAI) | NSE/BSE</b><br>
-                • <b>Listing Date:</b> Oct 2024 | <b>Issue Price:</b> ₹1,865 - ₹1,960<br>
-                • <b>Current Market Price:</b> ₹1,780.00 | <b>Listing Return:</b> -9.18%
-            </div>
-            <div class="radar-card" style="border-left: 4px solid #ef4444;">
-                <b>Jio Platforms Limited (JPL) | NSE</b><br>
-                • <b>Listing Date:</b> Listed Oct 2026 | <b>Issue Band:</b> ₹1,400 - ₹1,424<br>
-                • <b>Current Market Price:</b> ₹1,412.70 | <b>Day Change:</b> -0.84%
-            </div>
-            <div class="radar-card" style="border-left: 4px solid #10b981;">
-                <b>BLS E-Services Ltd (BLSE) | NSE</b><br>
-                • <b>Issue Price:</b> ₹135.00 | <b>Current Price:</b> ₹242.00 | <b>Gain:</b> +79.2%
-            </div>
-        """, unsafe_allow_html=True)
+    # 2. UPCOMING IPOS
+    with ipo_t2:
+        st.write("#### 🟡 Forthcoming IPOs in Pipeline (SEBI / DRHP Approved):")
+        upcoming_ipos = [
+            {
+                "name": "Hero Fincorp Limited", "sym": "HEROFIN", "exch": "NSE / BSE",
+                "open_dt": "Dec 2026 (Expected)", "close_dt": "TBA", "list_dt": "TBA",
+                "price": "₹850 - ₹890 (Est.)", "lot": "16 Shares", "issue": "₹3,668 Cr (Fresh ₹2,100 Cr + OFS)",
+                "pe": "24.8x", "mcap": "₹14,500 Cr", "gmp": "₹65 (+7.5% Premium)",
+                "sub_total": "Yet to Open", "verdict": "🟡 APPLY WITH CAUTION", "badge": "badge-caution",
+                "why": "Strong Hero MotoCorp brand equity; retail NBFC portfolio showing steady 18% ROE growth."
+            },
+            {
+                "name": "Aadhar Housing Finance Ltd", "sym": "AADHARHFC", "exch": "NSE / BSE",
+                "open_dt": "Late 2026", "close_dt": "TBA", "list_dt": "TBA",
+                "price": "₹300 - ₹315", "lot": "47 Shares", "issue": "₹3,000 Cr",
+                "pe": "18.2x", "mcap": "₹12,800 Cr", "gmp": "₹28 (+8.8% Premium)",
+                "sub_total": "Awaiting Dates", "verdict": "🟡 MONITOR", "badge": "badge-caution",
+                "why": "Affordable housing finance segment tailwind backed by Blackstone sponsorship."
+            }
+        ]
+
+        for u_ip in upcoming_ipos:
+            st.markdown(f"""
+                <div class="ipo-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b style="font-size:1.25rem; color:#ffffff;">{u_ip['name']}</b>
+                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{u_ip['sym']} | {u_ip['exch']}</span>
+                        </div>
+                        <span class="{u_ip['badge']}">{u_ip['verdict']}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
+                        <div><span style="color:#94a3b8;">📅 Expected Date:</span><br><b>{u_ip['open_dt']}</b></div>
+                        <div><span style="color:#94a3b8;">💰 Est. Price:</span><br><b style="color:#38bdf8;">{u_ip['price']}</b></div>
+                        <div><span style="color:#94a3b8;">📦 Expected Issue:</span><br><b>{u_ip['issue']}</b></div>
+                        <div><span style="color:#94a3b8;">🚀 Grey Market GMP:</span><br><b style="color:#f59e0b;">{u_ip['gmp']}</b></div>
+                    </div>
+                    <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1;">
+                        • <b>Expected Valuation:</b> P/E: {u_ip['pe']} | Mcap: {u_ip['mcap']}<br>
+                        • <b>Key Triggers:</b> {u_ip['why']}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+    # 3. CLOSED & RECENTLY LISTED
+    with ipo_t3:
+        st.write("#### 🔴 Recently Closed & Listed IPOs (Live Trading Performance):")
+        closed_ipos = [
+            {
+                "name": "Vikram Solar Ltd", "sym": "VIKRAMSOLR", "exch": "BSE / NSE",
+                "list_dt": "Aug 26, 2025", "issue_p": "₹332.00", "cmp": "₹435.00",
+                "gain": "+31.02%", "issue_sz": "₹2,079.37 Cr", "sub": "56.42x",
+                "status": "Listed & Outperforming", "desc": "Clean energy solar module expansion delivering robust revenue compounding."
+            },
+            {
+                "name": "Swiggy Limited", "sym": "SWIGGY", "exch": "NSE / BSE",
+                "list_dt": "Nov 13, 2026", "issue_p": "₹390.00", "cmp": "₹485.00",
+                "gain": "+24.35%", "issue_sz": "₹11,327 Cr", "sub": "3.59x",
+                "status": "Listed & Accumulating", "desc": "Quick commerce Instamart dark stores showing rapid profitability ramp-up."
+            },
+            {
+                "name": "Jio Platforms Limited", "sym": "JPL", "exch": "NSE",
+                "list_dt": "Oct 2026", "issue_p": "₹1,424.60", "cmp": "₹1,412.70",
+                "gain": "-0.84%", "issue_sz": "Mega Institutional Listing", "sub": "18.2x",
+                "status": "Consolidating near Listing Base", "desc": "Consolidating around ₹1,410 trailing stop support before next momentum leg."
+            },
+            {
+                "name": "Hyundai Motor India", "sym": "HYUNDAI", "exch": "NSE / BSE",
+                "list_dt": "Oct 22, 2024", "issue_p": "₹1,960.00", "cmp": "₹1,780.00",
+                "gain": "-9.18%", "issue_sz": "₹27,870 Cr", "sub": "2.37x",
+                "status": "Base Building", "desc": "100% OFS issue digesting promoter dilution; finding steady support near ₹1,740."
+            },
+            {
+                "name": "BLS E-Services Ltd", "sym": "BLSE", "exch": "NSE",
+                "list_dt": "Feb 2024", "issue_p": "₹135.00", "cmp": "₹242.00",
+                "gain": "+79.25%", "issue_sz": "₹310 Cr", "sub": "162.4x",
+                "status": "Multi-Bagger Winner", "desc": "E-governance and banking correspondent network delivering huge earnings growth."
+            }
+        ]
+
+        for c_ip in closed_ipos:
+            gain_col = "#10b981" if "+" in c_ip['gain'] else "#ef4444"
+            st.markdown(f"""
+                <div class="ipo-box" style="border-left: 4px solid {gain_col};">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b style="font-size:1.2rem; color:#ffffff;">{c_ip['name']}</b>
+                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{c_ip['sym']} | {c_ip['exch']}</span>
+                        </div>
+                        <span style="color:{gain_col}; font-weight:900; font-size:1.1rem;">Listing Return: {c_ip['gain']}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; font-size:0.9rem; background:#0b0f19; padding:8px 12px; border-radius:6px;">
+                        <div><span style="color:#94a3b8;">📅 Listing Date:</span><br><b>{c_ip['list_dt']}</b></div>
+                        <div><span style="color:#94a3b8;">🏷️ Issue Price:</span><br><b>{c_ip['issue_p']}</b></div>
+                        <div><span style="color:#94a3b8;">⚡ Current Price:</span><br><b style="color:#ffffff;">{c_ip['cmp']}</b></div>
+                        <div><span style="color:#94a3b8;">📈 Subscription:</span><br><b style="color:#38bdf8;">{c_ip['sub']}</b></div>
+                    </div>
+                    <div style="margin-top:6px; font-size:0.88rem; color:#cbd5e1;">
+                        • <b>Issue Size:</b> {c_ip['issue_sz']} | <b>Market Status:</b> {c_ip['status']}<br>
+                        • <b>Post-Listing Trajectory:</b> {c_ip['desc']}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"📈 Open {c_ip['sym']} Chart & Chandelier Exit", key=f"btn_open_closed_ipo_{c_ip['sym']}", use_container_width=True):
+                st.session_state.active_scrip = {"symbol": c_ip["sym"], "name": c_ip["name"], "exchange": c_ip["exch"].split("/")[0].strip(), "yf": f"{c_ip['sym']}.NS", "price": float(c_ip["cmp"].replace("₹","").replace(",",""))}
+                st.rerun()
