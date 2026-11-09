@@ -17,6 +17,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# ----------------- HELPER: PREVENT COMMONMARK HTML LEAKS -----------------
+def clean_html(raw_str):
+    """Strips all leading/trailing whitespace on every line to prevent Markdown code-block parsing."""
+    return "\n".join(line.strip() for line in raw_str.strip().splitlines())
+
 # ----------------- ULTRA-PRO HIGH CONTRAST & MODEBAR LEFT CSS -----------------
 st.markdown("""
 <style>
@@ -300,7 +305,6 @@ div[data-testid="stTextInput"] label {
     font-size: 0.85rem;
 }
 
-/* OPTIONS BREAKOUT BOXES */
 .option-box-ce {
     background: #0d1b1a;
     border: 1.5px solid #10b981;
@@ -666,24 +670,24 @@ cols_idx = st.columns([2.5, 2.5, 5])
 if "NIFTY 50" in idx_res:
     d = idx_res["NIFTY 50"]
     col = "#10b981" if d["diff"] >= 0 else "#ef4444"
-    cols_idx[0].markdown(
-        f'<div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">'
-        f'<span style="color:#94a3b8; font-weight:700;">🇮🇳 NIFTY 50:</span> '
-        f'<b>₹{d["price"]:,.2f}</b> <span style="color:{col}; font-weight:800;">{d["diff"]:+,.2f} ({d["pct"]:+.2f}%)</span>'
-        f'</div>',
-        unsafe_allow_html=True
-    )
+    st_nifty = clean_html(f"""
+    <div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">
+    <span style="color:#94a3b8; font-weight:700;">🇮🇳 NIFTY 50:</span> 
+    <b>₹{d["price"]:,.2f}</b> <span style="color:{col}; font-weight:800;">{d["diff"]:+,.2f} ({d["pct"]:+.2f}%)</span>
+    </div>
+    """)
+    cols_idx[0].markdown(st_nifty, unsafe_allow_html=True)
 
 if "SENSEX" in idx_res:
     d = idx_res["SENSEX"]
     col = "#10b981" if d["diff"] >= 0 else "#ef4444"
-    cols_idx[1].markdown(
-        f'<div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">'
-        f'<span style="color:#94a3b8; font-weight:700;">🇮🇳 SENSEX:</span> '
-        f'<b>₹{d["price"]:,.2f}</b> <span style="color:{col}; font-weight:800;">{d["diff"]:+,.2f} ({d["pct"]:+.2f}%)</span>'
-        f'</div>',
-        unsafe_allow_html=True
-    )
+    st_sensex = clean_html(f"""
+    <div style="background:#111726; border:1px solid #1e293b; padding:6px 12px; border-radius:6px; font-size:0.95rem;">
+    <span style="color:#94a3b8; font-weight:700;">🇮🇳 SENSEX:</span> 
+    <b>₹{d["price"]:,.2f}</b> <span style="color:{col}; font-weight:800;">{d["diff"]:+,.2f} ({d["pct"]:+.2f}%)</span>
+    </div>
+    """)
+    cols_idx[1].markdown(st_sensex, unsafe_allow_html=True)
 
 cols_idx[2].markdown(
     '<div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">'
@@ -865,19 +869,18 @@ with tab_terminal:
     if known_listing:
         listing_note = f"<span style='color:#38bdf8; font-size:0.8rem; margin-left:10px;'>• Listed: {known_listing.strftime('%d %b %Y')}</span>"
 
-    header_html = (
-        f'<div class="neo-card">'
-        f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-        f'<div><span class="stock-title">{active_name}</span>'
-        f'<span class="badge-nse">{active_sym} | {active_exch}</span>{listing_note}</div>'
-        f'<div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">{verdict_badge}</div>'
-        f'</div>'
-        f'<div style="display:flex; align-items:baseline; margin-top:4px;">'
-        f'<span class="price-large">₹{live_price:,.2f}</span>'
-        f'<span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>'
-        f'</div>'
-        f'</div>'
-    )
+    header_html = clean_html(f"""
+    <div class="neo-card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div><span class="stock-title">{active_name}</span><span class="badge-nse">{active_sym} | {active_exch}</span>{listing_note}</div>
+    <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">{verdict_badge}</div>
+    </div>
+    <div style="display:flex; align-items:baseline; margin-top:4px;">
+    <span class="price-large">₹{live_price:,.2f}</span>
+    <span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>
+    </div>
+    </div>
+    """)
     st.markdown(header_html, unsafe_allow_html=True)
 
     col_chart, col_advisor = st.columns([7.3, 2.7])
@@ -964,17 +967,17 @@ with tab_terminal:
         st.plotly_chart(fig, use_container_width=True)
 
     with col_advisor:
-        advisor_html = (
-            f'<div class="advisor-box">'
-            f'<div class="advisor-header">🛡️ Chandelier (7, 2.0) Plan</div>'
-            f'<div class="level-row"><span style="color:#94a3b8;">Chandelier Trend</span><b style="color:{verdict_color};">{verdict_badge}</b></div>'
-            f'<div class="level-row"><span style="color:#94a3b8;">Entry Reference</span><b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b></div>'
-            f'<div class="level-row"><span style="color:#94a3b8;">Chandelier Trailing SL</span><b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b></div>'
-            f'<div class="level-row"><span style="color:#94a3b8;">Target 1 (1.5x Risk)</span><b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b></div>'
-            f'<div class="level-row"><span style="color:#94a3b8;">Target 2 (2.5x Risk)</span><b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b></div>'
-            f'<div class="level-row" style="border-bottom:none;"><span style="color:#94a3b8;">Risk-to-Reward</span><b style="color:#38bdf8;">{risk_reward}</b></div>'
-            f'</div>'
-        )
+        advisor_html = clean_html(f"""
+        <div class="advisor-box">
+        <div class="advisor-header">🛡️ Chandelier (7, 2.0) Plan</div>
+        <div class="level-row"><span style="color:#94a3b8;">Chandelier Trend</span><b style="color:{verdict_color};">{verdict_badge}</b></div>
+        <div class="level-row"><span style="color:#94a3b8;">Entry Reference</span><b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b></div>
+        <div class="level-row"><span style="color:#94a3b8;">Chandelier Trailing SL</span><b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b></div>
+        <div class="level-row"><span style="color:#94a3b8;">Target 1 (1.5x Risk)</span><b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b></div>
+        <div class="level-row"><span style="color:#94a3b8;">Target 2 (2.5x Risk)</span><b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b></div>
+        <div class="level-row" style="border-bottom:none;"><span style="color:#94a3b8;">Risk-to-Reward</span><b style="color:#38bdf8;">{risk_reward}</b></div>
+        </div>
+        """)
         st.markdown(advisor_html, unsafe_allow_html=True)
 
         st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
@@ -982,12 +985,12 @@ with tab_terminal:
         calc_qty = int(my_budget // ltp) if ltp > 0 else 0
         total_risk = round(calc_qty * abs(ltp - stop_loss), 2)
 
-        budget_html = (
-            f'<div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">'
-            f'• <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>'
-            f'• <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>'
-            f'</div>'
-        )
+        budget_html = clean_html(f"""
+        <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
+        • <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
+        • <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
+        </div>
+        """)
         st.markdown(budget_html, unsafe_allow_html=True)
 
     m1, m2, m3, m4, m5 = st.columns(5)
@@ -1077,13 +1080,13 @@ with tab_radar:
 
     # ---------------- 1. 20 BEST BUY STOCKS ----------------
     with radar_sub1:
-        st.markdown(
-            '<div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">'
-            '<b style="color:#10b981; font-size:1.05rem;">🟢 Institutional BUY Scan (High Volume + Chandelier Long Active)</b><br>'
-            '<small style="color:#94a3b8;">Rules: Price > 20 EMA, Chandelier Stop Ratcheted Upward, Closing within 1.5% of Day\'s High.</small>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        hdr_b = clean_html("""
+        <div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+        <b style="color:#10b981; font-size:1.05rem;">🟢 Institutional BUY Scan (High Volume + Chandelier Long Active)</b><br>
+        <small style="color:#94a3b8;">Rules: Price > 20 EMA, Chandelier Stop Ratcheted Upward, Closing within 1.5% of Day's High.</small>
+        </div>
+        """)
+        st.markdown(hdr_b, unsafe_allow_html=True)
 
         top_20_buys = [
             {"sym": "BLS", "name": "BLS International Services Ltd", "price": 372.50, "entry": "₹375.00", "sl": "₹359.00", "tgt": "₹398.00", "setup": "Multi-Week Range Breakout + 2x Vol", "score": "94%"},
@@ -1111,31 +1114,31 @@ with tab_radar:
         b_cols = st.columns(2)
         for i, s in enumerate(top_20_buys):
             with b_cols[i % 2]:
-                card_b_html = (
-                    f'<div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #10b981; border-radius:8px; padding:12px; margin-bottom:10px;">'
-                    f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                    f'<b>{s["name"]} <span style="color:#38bdf8;">({s["sym"]})</span></b>'
-                    f'<span style="color:#10b981; font-weight:800;">{s["score"]}</span>'
-                    f'</div>'
-                    f'<div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">'
-                    f'• <b>Entry:</b> Above {s["entry"]} | <b>SL:</b> <span style="color:#ef4444;">{s["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{s["tgt"]}</span><br>'
-                    f'• <b>Setup:</b> {s["setup"]}'
-                    f'</div>'
-                    f'</div>'
-                )
+                card_b_html = clean_html(f"""
+                <div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #10b981; border-radius:8px; padding:12px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>{s["name"]} <span style="color:#38bdf8;">({s["sym"]})</span></b>
+                <span style="color:#10b981; font-weight:800;">{s["score"]}</span>
+                </div>
+                <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">
+                • <b>Entry:</b> Above {s["entry"]} | <b>SL:</b> <span style="color:#ef4444;">{s["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{s["tgt"]}</span><br>
+                • <b>Setup:</b> {s["setup"]}
+                </div>
+                </div>
+                """)
                 st.markdown(card_b_html, unsafe_allow_html=True)
                 if st.button(f"📈 Analyze {s['sym']}", key=f"r_b_{s['sym']}_{i}", use_container_width=True):
                     open_stock_terminal(s["sym"], s["name"], "NSE", f"{s['sym']}.NS", s["price"])
 
     # ---------------- 2. 20 BEST SELL STOCKS ----------------
     with radar_sub2:
-        st.markdown(
-            '<div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">'
-            '<b style="color:#ef4444; font-size:1.05rem;">🔴 Institutional SELL / SHORT Scan (Bearish Distribution + Trailing SL Breach)</b><br>'
-            '<small style="color:#94a3b8;">Rules: Price < 20 EMA, Chandelier Stop Broken Downward, Closing within 1.5% of Day\'s Low.</small>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        hdr_s = clean_html("""
+        <div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+        <b style="color:#ef4444; font-size:1.05rem;">🔴 Institutional SELL / SHORT Scan (Bearish Distribution + Trailing SL Breach)</b><br>
+        <small style="color:#94a3b8;">Rules: Price < 20 EMA, Chandelier Stop Broken Downward, Closing within 1.5% of Day's Low.</small>
+        </div>
+        """)
+        st.markdown(hdr_s, unsafe_allow_html=True)
 
         top_20_sells = [
             {"sym": "JPL", "name": "Jio Platforms Limited", "price": 1412.70, "entry": "Below ₹1,410", "sl": "₹1,432.00", "tgt": "₹1,375.00", "setup": "Chandelier SL Breach (-0.84% Weak Close)", "score": "95%"},
@@ -1163,36 +1166,35 @@ with tab_radar:
         s_cols = st.columns(2)
         for j, stk in enumerate(top_20_sells):
             with s_cols[j % 2]:
-                card_s_html = (
-                    f'<div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #ef4444; border-radius:8px; padding:12px; margin-bottom:10px;">'
-                    f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                    f'<b>{stk["name"]} <span style="color:#38bdf8;">({stk["sym"]})</span></b>'
-                    f'<span style="color:#ef4444; font-weight:800;">{stk["score"]}</span>'
-                    f'</div>'
-                    f'<div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">'
-                    f'• <b>Trigger Exit:</b> {stk["entry"]} | <b>SL:</b> <span style="color:#ef4444;">{stk["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{stk["tgt"]}</span><br>'
-                    f'• <b>Setup:</b> {stk["setup"]}'
-                    f'</div>'
-                    f'</div>'
-                )
+                card_s_html = clean_html(f"""
+                <div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #ef4444; border-radius:8px; padding:12px; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <b>{stk["name"]} <span style="color:#38bdf8;">({stk["sym"]})</span></b>
+                <span style="color:#ef4444; font-weight:800;">{stk["score"]}</span>
+                </div>
+                <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">
+                • <b>Trigger Exit:</b> {stk["entry"]} | <b>SL:</b> <span style="color:#ef4444;">{stk["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{stk["tgt"]}</span><br>
+                • <b>Setup:</b> {stk["setup"]}
+                </div>
+                </div>
+                """)
                 st.markdown(card_s_html, unsafe_allow_html=True)
                 if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
                     open_stock_terminal(stk["sym"], stk["name"], "NSE", f"{stk['sym']}.NS", stk["price"])
 
     # ---------------- 3. NIFTY & BANK NIFTY F&O (CE / PE) BREAKOUTS ----------------
     with radar_sub3:
-        st.markdown(
-            '<div style="background:#131c2e; border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">'
-            '<b style="color:#38bdf8; font-size:1.15rem;">⚡ NIFTY 50 & BANK NIFTY F&O INTRADAY BREAKOUT RADAR</b><br>'
-            '<small style="color:#cbd5e1;">Spot Index Support/Resistance ke aadhar par Call (CE) buying aur Put (PE) buying triggers with Option Premium Targets & SL.</small>'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        opt_hdr = clean_html("""
+        <div style="background:#131c2e; border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
+        <b style="color:#38bdf8; font-size:1.15rem;">⚡ NIFTY 50 & BANK NIFTY F&O INTRADAY BREAKOUT RADAR</b><br>
+        <small style="color:#cbd5e1;">Spot Index Support/Resistance ke aadhar par Call (CE) buying aur Put (PE) buying triggers with Option Premium Targets & SL.</small>
+        </div>
+        """)
+        st.markdown(opt_hdr, unsafe_allow_html=True)
 
         nifty_spot = idx_res.get("NIFTY 50", {}).get("price", 24150.0)
         bn_spot = idx_res.get("BANK NIFTY", {}).get("price", 51850.0)
 
-        # Dynamic Rounding for Nearest Strikes
         n_atm_ce = int(round(nifty_spot / 50.0) * 50)
         n_atm_pe = n_atm_ce
         bn_atm_ce = int(round(bn_spot / 100.0) * 100)
@@ -1200,118 +1202,113 @@ with tab_radar:
 
         opt_col1, opt_col2 = st.columns(2)
 
-        # ---------- NIFTY 50 OPTIONS BREAKOUT ----------
+        # NIFTY 50 OPTIONS BREAKOUT
         with opt_col1:
-            st.markdown(
-                f'<div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<h4 style="margin:0; color:#ffffff;">🇮🇳 NIFTY 50 F&O RADAR</h4>'
-                f'<span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{nifty_spot:,.2f}</span>'
-                f'</div>'
-                f'<small style="color:#94a3b8;">Weekly Expiry Contract | PCR (Put-Call Ratio): <b>0.92 (Neutral-Bullish)</b></small>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            nifty_card = clean_html(f"""
+            <div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 style="margin:0; color:#ffffff;">🇮🇳 NIFTY 50 F&O RADAR</h4>
+            <span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{nifty_spot:,.2f}</span>
+            </div>
+            <small style="color:#94a3b8;">Weekly Expiry Contract | PCR: <b>0.92 (Neutral-Bullish)</b></small>
+            </div>
+            """)
+            st.markdown(nifty_card, unsafe_allow_html=True)
 
-            # Nifty CE Card
-            st.markdown(
-                f'<div class="option-box-ce">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<b style="color:#10b981; font-size:1.2rem;">🟢 NIFTY {n_atm_ce} CALL (CE) BREAKOUT</b>'
-                f'<span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BULLISH EXPANSION</span>'
-                f'</div>'
-                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
-                f'• <b>Spot Trigger Level:</b> Above <b>₹{nifty_spot + 45:,.0f}</b> (15-Min Candle Close)<br>'
-                f'• <b>Option Premium Entry:</b> Buy between <b>₹125 - ₹135</b><br>'
-                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹95</span> (Risk: 35 Pts / ₹875 per lot)<br>'
-                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹170</span> (+35 Pts)<br>'
-                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹215</span> (+80 Pts)<br>'
-                f'• <b>Institutional Setup:</b> Heavy Call writing at {n_atm_ce} strike. Above {nifty_spot + 45:,.0f}, short-covering will trigger 120-point fast momentum.'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            nce_html = clean_html(f"""
+            <div class="option-box-ce">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="color:#10b981; font-size:1.2rem;">🟢 NIFTY {n_atm_ce} CALL (CE) BREAKOUT</b>
+            <span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BULLISH EXPANSION</span>
+            </div>
+            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
+            • <b>Spot Trigger Level:</b> Above <b>₹{nifty_spot + 45:,.0f}</b> (15-Min Candle Close)<br>
+            • <b>Option Premium Entry:</b> Buy between <b>₹125 - ₹135</b><br>
+            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹95</span> (Risk: 35 Pts / ₹875 per lot)<br>
+            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹170</span> (+35 Pts)<br>
+            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹215</span> (+80 Pts)<br>
+            • <b>Institutional Setup:</b> Heavy Call writing at {n_atm_ce} strike. Above {nifty_spot + 45:,.0f}, short-covering will trigger 120-point fast momentum.
+            </div>
+            </div>
+            """)
+            st.markdown(nce_html, unsafe_allow_html=True)
 
-            # Nifty PE Card
-            st.markdown(
-                f'<div class="option-box-pe">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<b style="color:#ef4444; font-size:1.2rem;">🔴 NIFTY {n_atm_pe} PUT (PE) BREAKDOWN</b>'
-                f'<span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BEARISH REVERSAL</span>'
-                f'</div>'
-                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
-                f'• <b>Spot Trigger Level:</b> Below <b>₹{nifty_spot - 50:,.0f}</b> (Sustained Breakdown)<br>'
-                f'• <b>Option Premium Entry:</b> Buy between <b>₹115 - ₹125</b><br>'
-                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹88</span> (Risk: 32 Pts / ₹800 per lot)<br>'
-                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹160</span> (+40 Pts)<br>'
-                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹205</span> (+85 Pts)<br>'
-                f'• <b>Institutional Setup:</b> Put unwinding detected below key swing low. 20 EMA breakdown will accelerate panic selling towards major support.'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            npe_html = clean_html(f"""
+            <div class="option-box-pe">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="color:#ef4444; font-size:1.2rem;">🔴 NIFTY {n_atm_pe} PUT (PE) BREAKDOWN</b>
+            <span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BEARISH REVERSAL</span>
+            </div>
+            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
+            • <b>Spot Trigger Level:</b> Below <b>₹{nifty_spot - 50:,.0f}</b> (Sustained Breakdown)<br>
+            • <b>Option Premium Entry:</b> Buy between <b>₹115 - ₹125</b><br>
+            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹88</span> (Risk: 32 Pts / ₹800 per lot)<br>
+            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹160</span> (+40 Pts)<br>
+            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹205</span> (+85 Pts)<br>
+            • <b>Institutional Setup:</b> Put unwinding detected below key swing low. 20 EMA breakdown will accelerate panic selling towards major support.
+            </div>
+            </div>
+            """)
+            st.markdown(npe_html, unsafe_allow_html=True)
 
-        # ---------- BANK NIFTY OPTIONS BREAKOUT ----------
+        # BANK NIFTY OPTIONS BREAKOUT
         with opt_col2:
-            st.markdown(
-                f'<div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<h4 style="margin:0; color:#ffffff;">🏦 BANK NIFTY F&O RADAR</h4>'
-                f'<span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{bn_spot:,.2f}</span>'
-                f'</div>'
-                f'<small style="color:#94a3b8;">Weekly Expiry Contract | PCR (Put-Call Ratio): <b>0.84 (High Volatility)</b></small>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            bn_card = clean_html(f"""
+            <div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 style="margin:0; color:#ffffff;">🏦 BANK NIFTY F&O RADAR</h4>
+            <span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{bn_spot:,.2f}</span>
+            </div>
+            <small style="color:#94a3b8;">Weekly Expiry Contract | PCR: <b>0.84 (High Volatility)</b></small>
+            </div>
+            """)
+            st.markdown(bn_card, unsafe_allow_html=True)
 
-            # Bank Nifty CE Card
-            st.markdown(
-                f'<div class="option-box-ce">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<b style="color:#10b981; font-size:1.2rem;">🟢 BANK NIFTY {bn_atm_ce} CALL (CE)</b>'
-                f'<span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">LONG EXPANSION</span>'
-                f'</div>'
-                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
-                f'• <b>Spot Trigger Level:</b> Above <b>₹{bn_spot + 120:,.0f}</b> (High Volume Breakout)<br>'
-                f'• <b>Option Premium Entry:</b> Buy between <b>₹280 - ₹310</b><br>'
-                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹220</span> (Risk: 75 Pts / ₹1,125 per lot)<br>'
-                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹395</span> (+100 Pts)<br>'
-                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹490</span> (+195 Pts)<br>'
-                f'• <b>Institutional Setup:</b> HDFC Bank & ICICI Bank multi-day consolidation breakout. Fast 250-point gamma blast on spot cross.'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            bnce_html = clean_html(f"""
+            <div class="option-box-ce">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="color:#10b981; font-size:1.2rem;">🟢 BANK NIFTY {bn_atm_ce} CALL (CE)</b>
+            <span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">LONG EXPANSION</span>
+            </div>
+            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
+            • <b>Spot Trigger Level:</b> Above <b>₹{bn_spot + 120:,.0f}</b> (High Volume Breakout)<br>
+            • <b>Option Premium Entry:</b> Buy between <b>₹280 - ₹310</b><br>
+            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹220</span> (Risk: 75 Pts / ₹1,125 per lot)<br>
+            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹395</span> (+100 Pts)<br>
+            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹490</span> (+195 Pts)<br>
+            • <b>Institutional Setup:</b> Banking sector consolidation breakout. Fast 250-point gamma blast on spot cross.
+            </div>
+            </div>
+            """)
+            st.markdown(bnce_html, unsafe_allow_html=True)
 
-            # Bank Nifty PE Card
-            st.markdown(
-                f'<div class="option-box-pe">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<b style="color:#ef4444; font-size:1.2rem;">🔴 BANK NIFTY {bn_atm_pe} PUT (PE)</b>'
-                f'<span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">SHORT BREAKDOWN</span>'
-                f'</div>'
-                f'<div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">'
-                f'• <b>Spot Trigger Level:</b> Below <b>₹{bn_spot - 140:,.0f}</b> (Chandelier Stop Breakdown)<br>'
-                f'• <b>Option Premium Entry:</b> Buy between <b>₹260 - ₹290</b><br>'
-                f'• <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹205</span> (Risk: 70 Pts / ₹1,050 per lot)<br>'
-                f'• <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹370</span> (+95 Pts)<br>'
-                f'• <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹460</span> (+185 Pts)<br>'
-                f'• <b>Institutional Setup:</b> PSU banking index profit booking. Sustaining below {bn_spot - 140:,.0f} opens quick waterfall slide.'
-                f'</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+            bnpe_html = clean_html(f"""
+            <div class="option-box-pe">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="color:#ef4444; font-size:1.2rem;">🔴 BANK NIFTY {bn_atm_pe} PUT (PE)</b>
+            <span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">SHORT BREAKDOWN</span>
+            </div>
+            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
+            • <b>Spot Trigger Level:</b> Below <b>₹{bn_spot - 140:,.0f}</b> (Chandelier Stop Breakdown)<br>
+            • <b>Option Premium Entry:</b> Buy between <b>₹260 - ₹290</b><br>
+            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹205</span> (Risk: 70 Pts / ₹1,050 per lot)<br>
+            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹370</span> (+95 Pts)<br>
+            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹460</span> (+185 Pts)<br>
+            • <b>Institutional Setup:</b> Heavy Call writing cap overhead. Sustaining below {bn_spot - 140:,.0f} opens quick slide.
+            </div>
+            </div>
+            """)
+            st.markdown(bnpe_html, unsafe_allow_html=True)
 
-        # Options Trading Discipline Guidelines
-        st.markdown(
-            '<div style="background:#0b0f19; border:1px solid #1e293b; border-radius:8px; padding:10px 14px; font-size:0.88rem; color:#94a3b8;">'
-            '<b style="color:#38bdf8;">📌 Pro Options Execution Rules:</b><br>'
-            '1. <b>Candle Confirmation:</b> Kisi bhi strike me tab tak entry na lein jab tak 5-minute ya 15-minute candle Index Spot trigger level ke upar/niche close na de.<br>'
-            '2. <b>Stop-Loss Discipline:</b> Option buying me time decay (Theta) hota hai; isliye premium stop-loss hit hote hi turant exit karein, average na karein.<br>'
-            '3. <b>Target 1 Profit Booking:</b> Target 1 aate hi 50% se 60% quantity book karein aur bache hue lot ka stop-loss cost-to-cost (entry price) par trail kar lein.'
-            '</div>',
-            unsafe_allow_html=True
-        )
+        guide_html = clean_html("""
+        <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:8px; padding:10px 14px; font-size:0.88rem; color:#94a3b8;">
+        <b style="color:#38bdf8;">📌 Pro Options Execution Rules:</b><br>
+        1. <b>Candle Confirmation:</b> Spot index level ke cross hone par 15-minute candle closing ka wait karein.<br>
+        2. <b>Stop-Loss Discipline:</b> Premium SL hit hote hi exit karein, average na karein.<br>
+        3. <b>Target 1 Profit Booking:</b> Target 1 aate hi 60% quantity book karke baki ka stop-loss entry price par trail karein.
+        </div>
+        """)
+        st.markdown(guide_html, unsafe_allow_html=True)
 
 # ==================== TAB 4: LIVE IPO RADAR ====================
 with tab_ipo:
@@ -1348,26 +1345,26 @@ with tab_ipo:
         ]
 
         for ip in current_ipos:
-            ipo_c_html = (
-                f'<div class="ipo-box">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<div><b style="font-size:1.25rem; color:#ffffff;">{ip["name"]}</b>'
-                f'<span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{ip["sym"]} | {ip["exch"]}</span></div>'
-                f'<span class="{ip["badge"]}">{ip["verdict"]}</span>'
-                f'</div>'
-                f'<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">'
-                f'<div><span style="color:#94a3b8;">📅 Bidding Dates:</span><br><b>{ip["open_dt"]} to {ip["close_dt"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">💰 Price Band:</span><br><b style="color:#38bdf8;">{ip["price"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">📦 Lot Size:</span><br><b>{ip["lot"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">🚀 Live GMP (Est.):</span><br><b style="color:#10b981;">{ip["gmp"]}</b></div>'
-                f'</div>'
-                f'<div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">'
-                f'• <b>Subscription Status:</b> Total: <b>{ip["sub_total"]}</b> (QIB: {ip["sub_qib"]}, NII: {ip["sub_nii"]}, Retail: {ip["sub_ret"]})<br>'
-                f'• <b>Issue Size & Valuation:</b> {ip["issue"]} | P/E: {ip["pe"]} | Mcap: {ip["mcap"]}<br>'
-                f'• <b>Recommendation Analysis:</b> {ip["why"]}
-                f'</div>'
-                f'</div>'
-            )
+            ipo_c_html = clean_html(f"""
+            <div class="ipo-box">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div><b style="font-size:1.25rem; color:#ffffff;">{ip["name"]}</b>
+            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{ip["sym"]} | {ip["exch"]}</span></div>
+            <span class="{ip["badge"]}">{ip["verdict"]}</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
+            <div><span style="color:#94a3b8;">📅 Bidding Dates:</span><br><b>{ip["open_dt"]} to {ip["close_dt"]}</b></div>
+            <div><span style="color:#94a3b8;">💰 Price Band:</span><br><b style="color:#38bdf8;">{ip["price"]}</b></div>
+            <div><span style="color:#94a3b8;">📦 Lot Size:</span><br><b>{ip["lot"]}</b></div>
+            <div><span style="color:#94a3b8;">🚀 Live GMP (Est.):</span><br><b style="color:#10b981;">{ip["gmp"]}</b></div>
+            </div>
+            <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
+            • <b>Subscription Status:</b> Total: <b>{ip["sub_total"]}</b> (QIB: {ip["sub_qib"]}, NII: {ip["sub_nii"]}, Retail: {ip["sub_ret"]})<br>
+            • <b>Issue Size & Valuation:</b> {ip["issue"]} | P/E: {ip["pe"]} | Mcap: {ip["mcap"]}<br>
+            • <b>Recommendation Analysis:</b> {ip["why"]}
+            </div>
+            </div>
+            """)
             st.markdown(ipo_c_html, unsafe_allow_html=True)
             if st.button(f"➕ Add {ip['sym']} to Watchlist", key=f"btn_add_curr_ipo_{ip['sym']}", use_container_width=True):
                 if not any(w["symbol"] == ip["sym"] for w in st.session_state.my_watchlist):
@@ -1397,25 +1394,25 @@ with tab_ipo:
         ]
 
         for u_ip in upcoming_ipos:
-            ipo_u_html = (
-                f'<div class="ipo-box">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<div><b style="font-size:1.25rem; color:#ffffff;">{u_ip["name"]}</b>'
-                f'<span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{u_ip["sym"]} | {u_ip["exch"]}</span></div>'
-                f'<span class="{u_ip["badge"]}">{u_ip["verdict"]}</span>'
-                f'</div>'
-                f'<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">'
-                f'<div><span style="color:#94a3b8;">📅 Expected Date:</span><br><b>{u_ip["open_dt"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">💰 Est. Price:</span><br><b style="color:#38bdf8;">{u_ip["price"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">📦 Expected Issue:</span><br><b>{u_ip["issue"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">🚀 Grey Market GMP:</span><br><b style="color:#f59e0b;">{u_ip["gmp"]}</b></div>'
-                f'</div>'
-                f'<div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1;">'
-                f'• <b>Expected Valuation:</b> P/E: {u_ip["pe"]} | Mcap: {u_ip["mcap"]}<br>'
-                f'• <b>Key Triggers:</b> {u_ip["why"]}</b>'
-                f'</div>'
-                f'</div>'
-            )
+            ipo_u_html = clean_html(f"""
+            <div class="ipo-box">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div><b style="font-size:1.25rem; color:#ffffff;">{u_ip["name"]}</b>
+            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{u_ip["sym"]} | {u_ip["exch"]}</span></div>
+            <span class="{u_ip["badge"]}">{u_ip["verdict"]}</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
+            <div><span style="color:#94a3b8;">📅 Expected Date:</span><br><b>{u_ip["open_dt"]}</b></div>
+            <div><span style="color:#94a3b8;">💰 Est. Price:</span><br><b style="color:#38bdf8;">{u_ip["price"]}</b></div>
+            <div><span style="color:#94a3b8;">📦 Expected Issue:</span><br><b>{u_ip["issue"]}</b></div>
+            <div><span style="color:#94a3b8;">🚀 Grey Market GMP:</span><br><b style="color:#f59e0b;">{u_ip["gmp"]}</b></div>
+            </div>
+            <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1;">
+            • <b>Expected Valuation:</b> P/E: {u_ip["pe"]} | Mcap: {u_ip["mcap"]}<br>
+            • <b>Key Triggers:</b> {u_ip["why"]}
+            </div>
+            </div>
+            """)
             st.markdown(ipo_u_html, unsafe_allow_html=True)
 
     with ipo_t3:
@@ -1455,25 +1452,25 @@ with tab_ipo:
 
         for c_ip in closed_ipos:
             gain_col = "#10b981" if "+" in c_ip['gain'] else "#ef4444"
-            ipo_cl_html = (
-                f'<div class="ipo-box" style="border-left: 4px solid {gain_col};">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center;">'
-                f'<div><b style="font-size:1.2rem; color:#ffffff;">{c_ip["name"]}</b>'
-                f'<span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{c_ip["sym"]} | {c_ip["exch"]}</span></div>'
-                f'<span style="color:{gain_col}; font-weight:900; font-size:1.1rem;">Listing Return: {c_ip["gain"]}</span>'
-                f'</div>'
-                f'<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; font-size:0.9rem; background:#0b0f19; padding:8px 12px; border-radius:6px;">'
-                f'<div><span style="color:#94a3b8;">📅 Listing Date:</span><br><b>{c_ip["list_dt"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">🏷️ Issue Price:</span><br><b>{c_ip["issue_p"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">⚡ Current Price:</span><br><b style="color:#ffffff;">{c_ip["cmp"]}</b></div>'
-                f'<div><span style="color:#94a3b8;">📈 Subscription:</span><br><b style="color:#38bdf8;">{c_ip["sub"]}</b></div>'
-                f'</div>'
-                f'<div style="margin-top:6px; font-size:0.88rem; color:#cbd5e1;">'
-                f'• <b>Issue Size:</b> {c_ip["issue_sz"]} | <b>Market Status:</b> {c_ip["status"]}<br>'
-                f'• <b>Post-Listing Trajectory:</b> {c_ip["desc"]}'
-                f'</div>'
-                f'</div>'
-            )
+            ipo_cl_html = clean_html(f"""
+            <div class="ipo-box" style="border-left: 4px solid {gain_col};">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div><b style="font-size:1.2rem; color:#ffffff;">{c_ip["name"]}</b>
+            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{c_ip["sym"]} | {c_ip["exch"]}</span></div>
+            <span style="color:{gain_col}; font-weight:900; font-size:1.1rem;">Listing Return: {c_ip["gain"]}</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; font-size:0.9rem; background:#0b0f19; padding:8px 12px; border-radius:6px;">
+            <div><span style="color:#94a3b8;">📅 Listing Date:</span><br><b>{c_ip["list_dt"]}</b></div>
+            <div><span style="color:#94a3b8;">🏷️ Issue Price:</span><br><b>{c_ip["issue_p"]}</b></div>
+            <div><span style="color:#94a3b8;">⚡ Current Price:</span><br><b style="color:#ffffff;">{c_ip["cmp"]}</b></div>
+            <div><span style="color:#94a3b8;">📈 Subscription:</span><br><b style="color:#38bdf8;">{c_ip["sub"]}</b></div>
+            </div>
+            <div style="margin-top:6px; font-size:0.88rem; color:#cbd5e1;">
+            • <b>Issue Size:</b> {c_ip["issue_sz"]} | <b>Market Status:</b> {c_ip["status"]}<br>
+            • <b>Post-Listing Trajectory:</b> {c_ip["desc"]}
+            </div>
+            </div>
+            """)
             st.markdown(ipo_cl_html, unsafe_allow_html=True)
             if st.button(f"📈 Open {c_ip['sym']} Chart & Chandelier Exit", key=f"btn_open_closed_ipo_{c_ip['sym']}", use_container_width=True):
                 open_stock_terminal(c_ip["sym"], c_ip["name"], c_ip["exch"].split("/")[0].strip(), f"{c_ip['sym']}.NS", float(c_ip["cmp"].replace("₹","").replace(",","")))
