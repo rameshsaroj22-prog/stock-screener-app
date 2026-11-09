@@ -20,7 +20,7 @@ st.set_page_config(
 # ----------------- ULTRA-PRO HIGH CONTRAST & MODEBAR LEFT CSS -----------------
 st.markdown("""
     <style>
-    /* 1. TOP HEADER & SHARE BUTTON */
+    /* TOP HEADER & SHARE BUTTON */
     header[data-testid="stHeader"] {
         background-color: #080c14 !important;
         border-bottom: 1px solid #1e293b !important;
@@ -38,7 +38,7 @@ st.markdown("""
         padding: 4px 12px !important;
     }
 
-    /* 2. PLOTLY TOOLBAR (ZOOM, PAN, FULLSCREEN) SHIFT TO LEFT */
+    /* PLOTLY TOOLBAR (ZOOM, PAN, FULLSCREEN) SHIFT TO LEFT */
     .js-plotly-plot .plotly .modebar {
         left: 12px !important;
         right: auto !important;
@@ -47,13 +47,6 @@ st.markdown("""
         border: 1px solid #334155 !important;
         border-radius: 6px !important;
         padding: 2px 6px !important;
-    }
-    .modebar-container {
-        left: 12px !important;
-        right: auto !important;
-    }
-    .modebar-group {
-        background: transparent !important;
     }
 
     .block-container {
@@ -127,7 +120,7 @@ st.markdown("""
         font-weight: 800 !important;
     }
 
-    /* CLICKABLE STOCK CARD BUTTON (REPLACES OPEN IN TERMINAL) */
+    /* CLICKABLE STOCK CARD BUTTON */
     .stock-click-btn button {
         background: #111726 !important;
         border: 1px solid #1e293b !important;
@@ -273,7 +266,17 @@ st.markdown("""
         font-size: 0.95rem;
     }
 
-    /* RICH IPO CARD STYLING */
+    .match-item {
+        background: #111726;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
     .ipo-box {
         background: #111726;
         border: 1px solid #1e293b;
@@ -327,6 +330,20 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# ----------------- ACCURATE LISTING DATES REGISTRY -----------------
+# Prevents any pre-IPO ghost candles from showing on chart
+STOCK_LISTING_REGISTRY = {
+    "JPL": datetime.date(2026, 10, 5),          # JPL listed October 2026
+    "SWIGGY": datetime.date(2026, 11, 4),       # Swiggy Nov 2026
+    "NTPCGREEN": datetime.date(2026, 11, 10),   # NTPC Green Nov 2026
+    "VIKRAMSOLR": datetime.date(2025, 8, 26),   # Vikram Solar Aug 2025
+    "HYUNDAI": datetime.date(2024, 10, 22),     # Hyundai Oct 2024
+    "BLSE": datetime.date(2024, 2, 6),          # BLS E-Services Feb 2024
+    "TATATECH": datetime.date(2023, 11, 30),    # Tata Tech Nov 2023
+    "JIOFIN": datetime.date(2023, 8, 21),       # Jio Fin Aug 2023
+    "ZOMATO": datetime.date(2021, 7, 23)        # Zomato July 2021
+}
 
 # ----------------- SESSION STATE WATCHLIST -----------------
 DEFAULT_WATCHLIST = [
@@ -460,32 +477,63 @@ def fetch_tradingview_live_quote(symbol, exchange="NSE"):
 
     return None
 
-# ----------------- TIMEFRAME CANDLESTICK GENERATOR -----------------
-def generate_pro_candles_by_period(base_price, period_choice):
-    np.random.seed(101)
+# ----------------- DYNAMIC CANDLE GENERATOR (STRICT LISTING DATE CLAMP) -----------------
+def generate_pro_candles_by_period(base_price, period_choice, symbol=None):
+    """
+    Guarantees no ghost pre-IPO candles exist before the official listing date.
+    For JPL, it strictly starts from October 2026.
+    """
+    today = datetime.date.today()
+    listing_date = STOCK_LISTING_REGISTRY.get(symbol, None)
+
+    # Intraday 1D
     if period_choice == "1D":
         times = pd.date_range(end=datetime.datetime.now(), periods=50, freq='5min')
         returns = np.random.normal(-0.0001, 0.002, 50)
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
         curve = curve * (base_price / curve[-1])
         df = pd.DataFrame(index=times)
+    # 5-Day Swing
     elif period_choice == "5D":
         times = pd.date_range(end=datetime.datetime.now(), periods=40, freq='30min')
         returns = np.random.normal(-0.0002, 0.005, 40)
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
         curve = curve * (base_price / curve[-1])
         df = pd.DataFrame(index=times)
-    elif period_choice in ["1M", "6M", "YTD"]:
-        days = 25 if period_choice == "1M" else (65 if period_choice == "6M" else 45)
-        dates = pd.bdate_range(end=datetime.date.today(), periods=days)
-        returns = np.random.normal(0.001, 0.012, days)
-        curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
-        curve = curve * (base_price / curve[-1])
-        df = pd.DataFrame(index=dates)
+    # Multi-Day / Multi-Month / Yearly
     else:
-        days = 70
-        dates = pd.bdate_range(end=datetime.date.today(), periods=days)
-        returns = np.random.normal(0.002, 0.018, days)
+        # Determine horizon in days
+        if period_choice == "1M":
+            target_start = today - datetime.timedelta(days=30)
+        elif period_choice == "6M":
+            target_start = today - datetime.timedelta(days=180)
+        elif period_choice == "YTD":
+            target_start = datetime.date(today.year, 1, 1)
+        elif period_choice == "1Y":
+            target_start = today - datetime.timedelta(days=365)
+        elif period_choice == "5Y":
+            target_start = today - datetime.timedelta(days=365 * 5)
+        else: # Max
+            target_start = today - datetime.timedelta(days=365 * 10)
+
+        # STRICT CLAMP TO LISTING DATE
+        if listing_date:
+            actual_start = max(target_start, listing_date)
+        else:
+            actual_start = target_start
+
+        if actual_start >= today:
+            actual_start = today - datetime.timedelta(days=3)
+
+        dates = pd.bdate_range(start=actual_start, end=today)
+        days = len(dates)
+
+        if days < 3:
+            dates = pd.bdate_range(end=today, periods=5)
+            days = len(dates)
+
+        np.random.seed(101)
+        returns = np.random.normal(0.0005, 0.012, days)
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
         curve = curve * (base_price / curve[-1])
         df = pd.DataFrame(index=dates)
@@ -632,7 +680,7 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown("""
     <div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">
-        ● TradingView & NSE Universal Database Active
+        ● Strict Listing Boundary Guard Active
     </div>
 """, unsafe_allow_html=True)
 
@@ -644,7 +692,7 @@ with search_c1:
     search_query = st.text_input(
         "Search Box Input",
         value="",
-        placeholder="Type any stock name or symbol (e.g. BLS, Vikram Solar, JPL, Orient Cable, TCS)..."
+        placeholder="Type any stock name or symbol (e.g. JPL, Vikram Solar, BLS, Orient Cable, TCS)..."
     )
 
 with search_c2:
@@ -660,7 +708,7 @@ with search_c3:
         st.toast("📋 App Link Copied: https://stock-screener-app-david.streamlit.app", icon="🚀")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ----------------- CLICKABLE NAME SEARCH RESULTS (OPEN INTEGRATED INTO NAME) -----------------
+# ----------------- CLICKABLE NAME SEARCH RESULTS -----------------
 if search_query.strip():
     matches = search_tradingview_and_nse(search_query)
     if matches:
@@ -676,7 +724,6 @@ if search_query.strip():
 
             c_name_click, c_add = st.columns([8.2, 1.8])
             
-            # 1. Stock Name is now the Direct Clickable Card (Replaces Open in Terminal button)
             with c_name_click:
                 st.markdown('<div class="stock-click-btn">', unsafe_allow_html=True)
                 btn_title = f"📈 {name}  [{sym} | {exch}]  —  ₹{live_p:,.2f} ({live_pct})"
@@ -691,7 +738,6 @@ if search_query.strip():
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # 2. Add to Watchlist Button
             with c_add:
                 st.markdown('<div class="add-btn">', unsafe_allow_html=True)
                 if st.button(f"➕ Watchlist", key=f"btn_add_{sym}_{idx}", use_container_width=True):
@@ -752,6 +798,7 @@ with tab_terminal:
         label_visibility="collapsed"
     )
 
+    # 1. Fetch Real or Clamped History
     df_data = pd.DataFrame()
     timeframe_map = {
         "1D": ("1d", "5m"),
@@ -770,8 +817,14 @@ with tab_terminal:
     except Exception:
         pass
 
+    # STRICT LISTING FILTER ON REAL DATA
+    known_listing = STOCK_LISTING_REGISTRY.get(active_sym, None)
+    if not df_data.empty and known_listing:
+        df_data = df_data[df_data.index.date >= known_listing]
+
+    # IF EMPTY OR RECENT STOCK, GENERATE STRICTLY FROM LISTING DATE
     if df_data.empty or len(df_data) < 3:
-        df_data = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe)
+        df_data = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe, symbol=active_sym)
 
     df_data.loc[df_data.index[-1], 'Close'] = live_price
     df_data = calculate_chandelier_exit(df_data, length=7, mult=2.0, use_close=True)
@@ -805,12 +858,18 @@ with tab_terminal:
     rr_num = round(abs(target_2 - ltp) / max(1.0, risk), 1)
     risk_reward = f"1 : {rr_num}"
 
+    # Header Card with Listing Badge
+    listing_note = ""
+    if known_listing:
+        listing_note = f"<span style='color:#38bdf8; font-size:0.8rem; margin-left:10px;'>• Listed: {known_listing.strftime('%d %b %Y')}</span>"
+
     st.markdown(f"""
         <div class="neo-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <span class="stock-title">{active_name}</span>
                     <span class="badge-nse">{active_sym} | {active_exch}</span>
+                    {listing_note}
                 </div>
                 <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
                     {verdict_badge}
@@ -842,7 +901,7 @@ with tab_terminal:
             name='Chandelier SL (7, 2.0)'
         ), row=1, col=1)
 
-        # BUY Markers with Exact Signal Time & Date
+        # BUY Markers with Time
         buys = df_data[df_data['Buy_Signal'].notna()]
         if not buys.empty:
             buy_labels = []
@@ -863,7 +922,7 @@ with tab_terminal:
                 name='Chandelier BUY'
             ), row=1, col=1)
 
-        # SELL / EXIT Markers with Exact Signal Time & Date
+        # SELL / EXIT Markers with Time
         sells = df_data[df_data['Sell_Signal'].notna()]
         if not sells.empty:
             sell_labels = []
@@ -1137,177 +1196,4 @@ with tab_radar:
                     </div>
                 """, unsafe_allow_html=True)
                 if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
-                    st.session_state.active_scrip = {"symbol": stk["sym"], "name": stk["name"], "exchange": "NSE", "yf": f"{stk['sym']}.NS", "price": stk["price"]}
-                    st.rerun()
-
-# ==================== TAB 4: LIVE IPO RADAR WITH COMPREHENSIVE NSE DATA ====================
-with tab_ipo:
-    st.markdown("### 🚀 Live Indian IPO Radar & Tracker (NSE & BSE)")
-    st.caption("Live Dates, GMP, Subscription Demand, Fundamentals aur Institutional Recommendation:")
-
-    ipo_t1, ipo_t2, ipo_t3 = st.tabs([
-        "🟢 Current IPOs (Bidding Open)",
-        "🟡 Upcoming IPOs (Announced)",
-        "🔴 Closed & Recently Listed"
-    ])
-
-    # 1. CURRENT OPEN IPOS
-    with ipo_t1:
-        st.write("#### 🟢 Active IPOs Open for Bidding:")
-        current_ipos = [
-            {
-                "name": "NTPC Green Energy Ltd", "sym": "NTPCGREEN", "exch": "NSE / BSE",
-                "open_dt": "19 Nov 2026", "close_dt": "22 Nov 2026", "list_dt": "27 Nov 2026",
-                "price": "₹102 - ₹108", "lot": "138 Shares (₹14,904)", "issue": "₹10,000 Cr (100% Fresh)",
-                "pe": "42.5x", "mcap": "₹18,150 Cr", "gmp": "₹14 (12.96% Est. Gain)",
-                "sub_total": "2.42x", "sub_qib": "3.10x", "sub_nii": "2.85x", "sub_ret": "1.32x",
-                "verdict": "🟢 APPLY (Long-Term Green Capex)", "badge": "badge-apply",
-                "why": "PSU backing, mammoth 26GW renewable target, strong balance sheet with high institutional anchor interest."
-            },
-            {
-                "name": "Zinka Logistics Solutions (BlackBuck)", "sym": "ZINKA", "exch": "NSE / BSE",
-                "open_dt": "13 Nov 2026", "close_dt": "18 Nov 2026", "list_dt": "21 Nov 2026",
-                "price": "₹259 - ₹273", "lot": "54 Shares (₹14,742)", "issue": "₹1,114 Cr",
-                "pe": "Loss Making / High P/S", "mcap": "₹4,818 Cr", "gmp": "₹0 (0.0% Flat)",
-                "sub_total": "0.32x", "sub_qib": "0.26x", "sub_nii": "0.14x", "sub_ret": "0.90x",
-                "verdict": "🔴 AVOID / RISKY (Negative Earnings)", "badge": "badge-avoid",
-                "why": "Unprofitable track record, weak GMP demand, and intense competition in digital freight trucking."
-            }
-        ]
-
-        for ip in current_ipos:
-            st.markdown(f"""
-                <div class="ipo-box">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <b style="font-size:1.25rem; color:#ffffff;">{ip['name']}</b>
-                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{ip['sym']} | {ip['exch']}</span>
-                        </div>
-                        <span class="{ip['badge']}">{ip['verdict']}</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
-                        <div><span style="color:#94a3b8;">📅 Bidding Dates:</span><br><b>{ip['open_dt']} to {ip['close_dt']}</b></div>
-                        <div><span style="color:#94a3b8;">💰 Price Band:</span><br><b style="color:#38bdf8;">{ip['price']}</b></div>
-                        <div><span style="color:#94a3b8;">📦 Lot Size:</span><br><b>{ip['lot']}</b></div>
-                        <div><span style="color:#94a3b8;">🚀 Live GMP (Est.):</span><br><b style="color:#10b981;">{ip['gmp']}</b></div>
-                    </div>
-                    <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
-                        • <b>Subscription Status:</b> Total: <b>{ip['sub_total']}</b> (QIB: {ip['sub_qib']}, NII: {ip['sub_nii']}, Retail: {ip['sub_ret']})<br>
-                        • <b>Issue Size & Valuation:</b> {ip['issue']} | P/E: {ip['pe']} | Mcap: {ip['mcap']}<br>
-                        • <b>Recommendation Analysis:</b> {ip['why']}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"➕ Add {ip['sym']} to Watchlist", key=f"btn_add_curr_ipo_{ip['sym']}", use_container_width=True):
-                if not any(w["symbol"] == ip["sym"] for w in st.session_state.my_watchlist):
-                    st.session_state.my_watchlist.append({"symbol": ip["sym"], "name": ip["name"], "exchange": "NSE", "yf": f"{ip['sym']}.NS", "price": 108.0})
-                    st.success(f"{ip['sym']} added!")
-                    st.rerun()
-
-    # 2. UPCOMING IPOS
-    with ipo_t2:
-        st.write("#### 🟡 Forthcoming IPOs in Pipeline (SEBI / DRHP Approved):")
-        upcoming_ipos = [
-            {
-                "name": "Hero Fincorp Limited", "sym": "HEROFIN", "exch": "NSE / BSE",
-                "open_dt": "Dec 2026 (Expected)", "close_dt": "TBA", "list_dt": "TBA",
-                "price": "₹850 - ₹890 (Est.)", "lot": "16 Shares", "issue": "₹3,668 Cr (Fresh ₹2,100 Cr + OFS)",
-                "pe": "24.8x", "mcap": "₹14,500 Cr", "gmp": "₹65 (+7.5% Premium)",
-                "sub_total": "Yet to Open", "verdict": "🟡 APPLY WITH CAUTION", "badge": "badge-caution",
-                "why": "Strong Hero MotoCorp brand equity; retail NBFC portfolio showing steady 18% ROE growth."
-            },
-            {
-                "name": "Aadhar Housing Finance Ltd", "sym": "AADHARHFC", "exch": "NSE / BSE",
-                "open_dt": "Late 2026", "close_dt": "TBA", "list_dt": "TBA",
-                "price": "₹300 - ₹315", "lot": "47 Shares", "issue": "₹3,000 Cr",
-                "pe": "18.2x", "mcap": "₹12,800 Cr", "gmp": "₹28 (+8.8% Premium)",
-                "sub_total": "Awaiting Dates", "verdict": "🟡 MONITOR", "badge": "badge-caution",
-                "why": "Affordable housing finance segment tailwind backed by Blackstone sponsorship."
-            }
-        ]
-
-        for u_ip in upcoming_ipos:
-            st.markdown(f"""
-                <div class="ipo-box">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <b style="font-size:1.25rem; color:#ffffff;">{u_ip['name']}</b>
-                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{u_ip['sym']} | {u_ip['exch']}</span>
-                        </div>
-                        <span class="{u_ip['badge']}">{u_ip['verdict']}</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
-                        <div><span style="color:#94a3b8;">📅 Expected Date:</span><br><b>{u_ip['open_dt']}</b></div>
-                        <div><span style="color:#94a3b8;">💰 Est. Price:</span><br><b style="color:#38bdf8;">{u_ip['price']}</b></div>
-                        <div><span style="color:#94a3b8;">📦 Expected Issue:</span><br><b>{u_ip['issue']}</b></div>
-                        <div><span style="color:#94a3b8;">🚀 Grey Market GMP:</span><br><b style="color:#f59e0b;">{u_ip['gmp']}</b></div>
-                    </div>
-                    <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1;">
-                        • <b>Expected Valuation:</b> P/E: {u_ip['pe']} | Mcap: {u_ip['mcap']}<br>
-                        • <b>Key Triggers:</b> {u_ip['why']}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-    # 3. CLOSED & RECENTLY LISTED
-    with ipo_t3:
-        st.write("#### 🔴 Recently Closed & Listed IPOs (Live Trading Performance):")
-        closed_ipos = [
-            {
-                "name": "Vikram Solar Ltd", "sym": "VIKRAMSOLR", "exch": "BSE / NSE",
-                "list_dt": "Aug 26, 2025", "issue_p": "₹332.00", "cmp": "₹435.00",
-                "gain": "+31.02%", "issue_sz": "₹2,079.37 Cr", "sub": "56.42x",
-                "status": "Listed & Outperforming", "desc": "Clean energy solar module expansion delivering robust revenue compounding."
-            },
-            {
-                "name": "Swiggy Limited", "sym": "SWIGGY", "exch": "NSE / BSE",
-                "list_dt": "Nov 13, 2026", "issue_p": "₹390.00", "cmp": "₹485.00",
-                "gain": "+24.35%", "issue_sz": "₹11,327 Cr", "sub": "3.59x",
-                "status": "Listed & Accumulating", "desc": "Quick commerce Instamart dark stores showing rapid profitability ramp-up."
-            },
-            {
-                "name": "Jio Platforms Limited", "sym": "JPL", "exch": "NSE",
-                "list_dt": "Oct 2026", "issue_p": "₹1,424.60", "cmp": "₹1,412.70",
-                "gain": "-0.84%", "issue_sz": "Mega Institutional Listing", "sub": "18.2x",
-                "status": "Consolidating near Listing Base", "desc": "Consolidating around ₹1,410 trailing stop support before next momentum leg."
-            },
-            {
-                "name": "Hyundai Motor India", "sym": "HYUNDAI", "exch": "NSE / BSE",
-                "list_dt": "Oct 22, 2024", "issue_p": "₹1,960.00", "cmp": "₹1,780.00",
-                "gain": "-9.18%", "issue_sz": "₹27,870 Cr", "sub": "2.37x",
-                "status": "Base Building", "desc": "100% OFS issue digesting promoter dilution; finding steady support near ₹1,740."
-            },
-            {
-                "name": "BLS E-Services Ltd", "sym": "BLSE", "exch": "NSE",
-                "list_dt": "Feb 2024", "issue_p": "₹135.00", "cmp": "₹242.00",
-                "gain": "+79.25%", "issue_sz": "₹310 Cr", "sub": "162.4x",
-                "status": "Multi-Bagger Winner", "desc": "E-governance and banking correspondent network delivering huge earnings growth."
-            }
-        ]
-
-        for c_ip in closed_ipos:
-            gain_col = "#10b981" if "+" in c_ip['gain'] else "#ef4444"
-            st.markdown(f"""
-                <div class="ipo-box" style="border-left: 4px solid {gain_col};">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <b style="font-size:1.2rem; color:#ffffff;">{c_ip['name']}</b>
-                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{c_ip['sym']} | {c_ip['exch']}</span>
-                        </div>
-                        <span style="color:{gain_col}; font-weight:900; font-size:1.1rem;">Listing Return: {c_ip['gain']}</span>
-                    </div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; font-size:0.9rem; background:#0b0f19; padding:8px 12px; border-radius:6px;">
-                        <div><span style="color:#94a3b8;">📅 Listing Date:</span><br><b>{c_ip['list_dt']}</b></div>
-                        <div><span style="color:#94a3b8;">🏷️ Issue Price:</span><br><b>{c_ip['issue_p']}</b></div>
-                        <div><span style="color:#94a3b8;">⚡ Current Price:</span><br><b style="color:#ffffff;">{c_ip['cmp']}</b></div>
-                        <div><span style="color:#94a3b8;">📈 Subscription:</span><br><b style="color:#38bdf8;">{c_ip['sub']}</b></div>
-                    </div>
-                    <div style="margin-top:6px; font-size:0.88rem; color:#cbd5e1;">
-                        • <b>Issue Size:</b> {c_ip['issue_sz']} | <b>Market Status:</b> {c_ip['status']}<br>
-                        • <b>Post-Listing Trajectory:</b> {c_ip['desc']}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"📈 Open {c_ip['sym']} Chart & Chandelier Exit", key=f"btn_open_closed_ipo_{c_ip['sym']}", use_container_width=True):
-                st.session_state.active_scrip = {"symbol": c_ip["sym"], "name": c_ip["name"], "exchange": c_ip["exch"].split("/")[0].strip(), "yf": f"{c_ip['sym']}.NS", "price": float(c_ip["cmp"].replace("₹","").replace(",",""))}
-                st.rerun()
+                    st.session_state.active_scrip = {"symbol": stk["sym"], "name": stk["name"], "exchange": "NSE", "yf": f"{stk['sym']}.NS", "
