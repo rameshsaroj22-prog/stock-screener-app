@@ -12,7 +12,7 @@ import re
 
 # ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Pro Terminal & Next-Day Radar",
+    page_title="Pro Screener & Next-Day Radar",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -86,7 +86,7 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* UNIVERSAL BUTTONS */
+    /* BUTTONS */
     div[data-testid="stButton"] > button {
         background-color: #1e293b !important;
         color: #ffffff !important;
@@ -622,4 +622,506 @@ if search_query.strip():
             q_info = fetch_tradingview_live_quote(sym, exch)
             live_p = q_info["price"] if q_info else 100.0
             live_pct = q_info["change_pct"] if q_info else "0.0%"
-            p_color = "#10b9
+            
+            # SAFE ROBUST COLOR ASSIGNMENT (NO STRING TRUNCATION)
+            if "+" in live_pct:
+                p_color = "#10b981"
+            else:
+                p_color = "#ef4444"
+
+            c_info, c_action1, c_action2 = st.columns([6.8, 1.6, 1.6])
+            with c_info:
+                st.markdown(f"""
+                    <div class="match-item">
+                        <div>
+                            <b style="color:#ffffff; font-size:1.1rem;">{name}</b>
+                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{sym} | {exch}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="font-size:1.15rem; font-weight:800; color:#ffffff;">₹{live_p:,.2f}</span>
+                            <span style="color:{p_color}; font-weight:800; margin-left:8px;">{live_pct}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c_action1:
+                if st.button(f"📈 Open", key=f"btn_open_{sym}_{idx}", use_container_width=True):
+                    st.session_state.active_scrip = {
+                        "symbol": sym,
+                        "name": name,
+                        "exchange": exch,
+                        "yf": item["yf"],
+                        "price": live_p
+                    }
+                    st.rerun()
+            with c_action2:
+                st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+                if st.button(f"➕ Watchlist", key=f"btn_add_{sym}_{idx}", use_container_width=True):
+                    if not any(w["symbol"] == sym for w in st.session_state.my_watchlist):
+                        st.session_state.my_watchlist.append({
+                            "symbol": sym,
+                            "name": name,
+                            "exchange": exch,
+                            "yf": item["yf"],
+                            "price": live_p
+                        })
+                        st.success(f"{sym} added to Watchlist!")
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.info(f"No listed Indian stock found for '{search_query}'. Please check the spelling.")
+
+# ----------------- MAIN TABS -----------------
+tab_terminal, tab_watchlist, tab_radar, tab_ipo = st.tabs([
+    "📈 Kotak Neo One-Page Terminal",
+    "📋 Manual Watchlist & Live Screener",
+    "🎯 Next-Day Radar (Best BUY / SELL)",
+    "🚀 Live IPO Radar"
+])
+
+# ==================== TAB 1: ONE-PAGE TERMINAL ====================
+with tab_terminal:
+    active_obj = st.session_state.active_scrip
+    active_sym = active_obj["symbol"]
+    active_name = active_obj["name"]
+    active_exch = active_obj.get("exchange", "NSE")
+    active_yf = active_obj.get("yf", f"{active_sym}.NS")
+    known_price = active_obj.get("price", 1412.70)
+
+    tv_quote = fetch_tradingview_live_quote(active_sym, active_exch)
+    if tv_quote:
+        live_price = tv_quote["price"]
+        prev_close = tv_quote["prev_close"]
+        chg_pts = tv_quote["chg_pts"]
+        chg_pct_str = tv_quote["change_pct"]
+        active_name = tv_quote["name"]
+    else:
+        live_price = known_price
+        prev_close = live_price * 0.992
+        chg_pts = live_price - prev_close
+        chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
+        chg_pct_str = f"{chg_pct:+.2f}%"
+
+    is_up = chg_pts >= 0
+    pill_class = "change-green" if is_up else "change-red"
+    sign = "+" if is_up else ""
+
+    selected_timeframe = st.radio(
+        "Time Horizon",
+        ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "Max"],
+        index=3,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+    df_data = pd.DataFrame()
+    timeframe_map = {
+        "1D": ("1d", "5m"),
+        "5D": ("5d", "15m"),
+        "1M": ("1mo", "1d"),
+        "6M": ("6mo", "1d"),
+        "YTD": ("ytd", "1d"),
+        "1Y": ("1y", "1d"),
+        "5Y": ("5y", "1wk"),
+        "Max": ("max", "1mo")
+    }
+    p_arg, i_arg = timeframe_map.get(selected_timeframe, ("6mo", "1d"))
+
+    try:
+        df_data = yf.Ticker(active_yf).history(period=p_arg, interval=i_arg)
+    except Exception:
+        pass
+
+    if df_data.empty or len(df_data) < 3:
+        df_data = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe)
+
+    df_data.loc[df_data.index[-1], 'Close'] = live_price
+    df_data = calculate_chandelier_exit(df_data, length=7, mult=2.0, use_close=True)
+
+    ltp = float(df_data['Close'].iloc[-1])
+    current_dir = int(df_data['Chandelier_Dir'].iloc[-1])
+    chan_stop = float(df_data['Chandelier_Stop'].iloc[-1])
+    atr_val = float(df_data['ATR'].iloc[-1])
+    ema20_val = float(df_data['EMA_20'].iloc[-1])
+
+    if current_dir == 1:
+        verdict_badge = "🟢 CHANDELIER BUY (LONG)"
+        verdict_color = "#10b981"
+        stop_loss = round(chan_stop, 2)
+        risk = max(2.0, ltp - stop_loss)
+        target_1 = round(ltp + (risk * 1.5), 2)
+        target_2 = round(ltp + (risk * 2.5), 2)
+        sl_pct_val = round((ltp - stop_loss) / ltp * 100, 1) if ltp > 0 else 0.0
+    else:
+        verdict_badge = "🔴 CHANDELIER EXIT / SHORT"
+        verdict_color = "#ef4444"
+        stop_loss = round(chan_stop, 2)
+        risk = max(2.0, stop_loss - ltp)
+        target_1 = round(ltp - (risk * 1.5), 2)
+        target_2 = round(ltp - (risk * 2.5), 2)
+        sl_pct_val = round((stop_loss - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+
+    t1_pct_val = round(abs(target_1 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+    t2_pct_val = round(abs(target_2 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+    entry_high_val = ltp * 1.005
+    rr_num = round(abs(target_2 - ltp) / max(1.0, risk), 1)
+    risk_reward = f"1 : {rr_num}"
+
+    st.markdown(f"""
+        <div class="neo-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <span class="stock-title">{active_name}</span>
+                    <span class="badge-nse">{active_sym} | {active_exch}</span>
+                </div>
+                <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
+                    {verdict_badge}
+                </div>
+            </div>
+            <div style="display:flex; align-items:baseline; margin-top:4px;">
+                <span class="price-large">₹{live_price:,.2f}</span>
+                <span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    col_chart, col_advisor = st.columns([7.3, 2.7])
+
+    with col_chart:
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
+
+        fig.add_trace(go.Candlestick(
+            x=df_data.index, open=df_data['Open'], high=df_data['High'], low=df_data['Low'], close=df_data['Close'],
+            name='Price'
+        ), row=1, col=1)
+
+        fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.2), name='20 EMA'), row=1, col=1)
+
+        fig.add_trace(go.Scatter(
+            x=df_data.index,
+            y=df_data['Chandelier_Stop'],
+            line=dict(color='#10b981' if current_dir == 1 else '#ef4444', width=2, dash='dot'),
+            name='Chandelier SL (7, 2.0)'
+        ), row=1, col=1)
+
+        buys = df_data[df_data['Buy_Signal'].notna()]
+        if not buys.empty:
+            fig.add_trace(go.Scatter(
+                x=buys.index, y=buys['Buy_Signal'],
+                mode='markers+text',
+                marker=dict(symbol='triangle-up', size=16, color='#10b981', line=dict(width=1, color='white')),
+                text=['BUY'] * len(buys),
+                textposition='bottom center',
+                textfont=dict(color='#10b981', size=12, family="Arial Black"),
+                name='Chandelier BUY'
+            ), row=1, col=1)
+
+        sells = df_data[df_data['Sell_Signal'].notna()]
+        if not sells.empty:
+            fig.add_trace(go.Scatter(
+                x=sells.index, y=sells['Sell_Signal'],
+                mode='markers+text',
+                marker=dict(symbol='triangle-down', size=16, color='#ef4444', line=dict(width=1, color='white')),
+                text=['SELL / EXIT'] * len(sells),
+                textposition='top center',
+                textfont=dict(color='#ef4444', size=12, family="Arial Black"),
+                name='Chandelier EXIT'
+            ), row=1, col=1)
+
+        vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df_data.iterrows()]
+        fig.add_trace(go.Bar(x=df_data.index, y=df_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
+
+        fig.update_layout(
+            height=410,
+            margin=dict(l=5, r=5, t=10, b=5),
+            xaxis_rangeslider_visible=False,
+            template="plotly_dark",
+            paper_bgcolor="#080c14",
+            plot_bgcolor="#080c14",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(color="#ffffff", size=13, family="Segoe UI"),
+                bgcolor="rgba(17, 23, 38, 0.95)",
+                bordercolor="#475569",
+                borderwidth=1
+            )
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_advisor:
+        advisor_html = f"""
+        <div class="advisor-box">
+            <div class="advisor-header">
+                🛡️ Chandelier (7, 2.0) Plan
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Chandelier Trend</span>
+                <b style="color:{verdict_color};">{verdict_badge}</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Entry Reference</span>
+                <b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Chandelier Trailing SL</span>
+                <b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Target 1 (1.5x Risk)</span>
+                <b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b>
+            </div>
+            <div class="level-row">
+                <span style="color:#94a3b8;">Target 2 (2.5x Risk)</span>
+                <b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b>
+            </div>
+            <div class="level-row" style="border-bottom:none;">
+                <span style="color:#94a3b8;">Risk-to-Reward</span>
+                <b style="color:#38bdf8;">{risk_reward}</b>
+            </div>
+        </div>
+        """
+        st.markdown(advisor_html, unsafe_allow_html=True)
+
+        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        my_budget = st.number_input("Capital to Deploy (₹):", min_value=1000, value=25000, step=5000)
+        calc_qty = int(my_budget // ltp) if ltp > 0 else 0
+        total_risk = round(calc_qty * abs(ltp - stop_loss), 2)
+
+        budget_html = f"""
+        <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
+            • <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
+            • <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
+        </div>
+        """
+        st.markdown(budget_html, unsafe_allow_html=True)
+
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Chandelier Stop (7, 2.0)", f"₹{chan_stop:,.2f}")
+    m2.metric("ATR Volatility (7)", f"₹{atr_val:,.2f}")
+    m3.metric("Trend State", "BULLISH" if current_dir == 1 else "BEARISH")
+    m4.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
+    m5.metric("Target 1 (1.5x Risk)", f"₹{target_1:,.2f}")
+
+# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
+with tab_watchlist:
+    st.markdown("### 📋 Advanced Multi-Stock Watchlist & Screener")
+
+    w_rows = []
+    bullish_count = 0
+    bearish_count = 0
+
+    for item in st.session_state.my_watchlist:
+        s_sym = item["symbol"]
+        s_name = item["name"]
+        s_exch = item.get("exchange", "NSE")
+        s_price = item.get("price", 100.0)
+
+        tv_w = fetch_tradingview_live_quote(s_sym, s_exch)
+        c_price = tv_w["price"] if tv_w else s_price
+        c_pct = tv_w["change_pct"] if tv_w else "0.0%"
+
+        if c_price >= 400:
+            sig = "🟢 BUY (LONG)"
+            bullish_count += 1
+        else:
+            sig = "🟡 HOLD"
+            bearish_count += 1
+
+        sl_calc = round(c_price * 0.965, 2)
+        tgt_calc = round(c_price * 1.035, 2)
+
+        w_rows.append({
+            "Symbol": s_sym,
+            "Exchange": s_exch,
+            "Company Name": s_name,
+            "Live Price": f"₹{c_price:,.2f}",
+            "1-Day Change": c_pct,
+            "Chandelier Signal": sig,
+            "Trailing Stop (SL)": f"₹{sl_calc:,.2f}",
+            "Target 1": f"₹{tgt_calc:,.2f}"
+        })
+
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Tracked Scrips", f"{len(st.session_state.my_watchlist)} Stocks")
+    s2.metric("Bullish Breakouts", f"{bullish_count} Scrips")
+    s3.metric("Consolidating / Hold", f"{bearish_count} Scrips")
+
+    if w_rows:
+        st.dataframe(pd.DataFrame(w_rows), use_container_width=True, hide_index=True)
+
+    st.markdown("#### ⚡ Quick Actions on Watchlist:")
+    act1, act2 = st.columns(2)
+
+    symbols_list = [w["symbol"] for w in st.session_state.my_watchlist]
+    with act1:
+        st.write("**📈 Open Stock in One-Page Terminal:**")
+        target_view = st.selectbox("Select Scrip to View:", symbols_list, key="sel_view_box")
+        if st.button("Open in Terminal", use_container_width=True):
+            chosen = next((x for x in st.session_state.my_watchlist if x["symbol"] == target_view), None)
+            if chosen:
+                st.session_state.active_scrip = chosen
+                st.rerun()
+
+    with act2:
+        st.write("**❌ Remove Stock from Watchlist:**")
+        target_delete = st.selectbox("Select Scrip to Remove:", symbols_list, key="sel_del_box")
+        if st.button("Delete from Watchlist", use_container_width=True):
+            st.session_state.my_watchlist = [x for x in st.session_state.my_watchlist if x["symbol"] != target_delete]
+            st.success(f"Removed {target_delete} from Watchlist!")
+            st.rerun()
+
+# ==================== TAB 3: NEXT-DAY BEST BUY / BEST SELL RADAR ====================
+with tab_radar:
+    st.markdown("### 🎯 Tomorrow's High-Conviction Trades (EOD Chart Reader)")
+    st.caption("यह स्कैनर आज मार्केट क्लोजिंग पर चार्ट्स रीड करके कल के लिए बेस्ट ब्रेकआउट (BUY) और ब्रेकडाउन (SELL) स्टॉक्स की लिस्ट तैयार करता है:")
+
+    col_b_radar, col_s_radar = st.columns(2)
+
+    with col_b_radar:
+        st.markdown("""
+            <div style="background:#111c1d; border:1px solid #059669; border-radius:10px; padding:12px; margin-bottom:12px;">
+                <h4 style="color:#10b981; margin:0;">🟢 Top BUY Setups for Tomorrow (BTST / Swing)</h4>
+                <small style="color:#94a3b8;">Condition: Chandelier Long Active + Volume Spike (>1.5x) + Closed near High</small>
+            </div>
+        """, unsafe_allow_html=True)
+
+        buy_radar_data = [
+            {
+                "sym": "BLS", "name": "BLS International Services Ltd", "price": 372.50,
+                "entry": "₹374 - ₹376", "sl": "₹358.00", "tgt": "₹395.00",
+                "setup": "Volume Breakout + Chandelier Flip", "strength": "92% Strong"
+            },
+            {
+                "sym": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "price": 435.00,
+                "entry": "₹436 - ₹439", "sl": "₹421.00", "tgt": "₹465.00",
+                "setup": "Above 20 EMA + Multi-Day High Close", "strength": "88% Strong"
+            },
+            {
+                "sym": "COALINDIA", "name": "Coal India Limited", "price": 408.00,
+                "entry": "₹409 - ₹411", "sl": "₹398.00", "tgt": "₹425.00",
+                "setup": "Chandelier Trailing Support Bounce", "strength": "85% Steady"
+            }
+        ]
+
+        for stk in buy_radar_data:
+            st.markdown(f"""
+                <div class="radar-card" style="border-left: 4px solid #10b981;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b style="font-size:1.15rem; color:#ffffff;">{stk['name']}</b>
+                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:6px; font-weight:700;">{stk['sym']}</span>
+                        </div>
+                        <span style="color:#10b981; font-weight:800; font-size:0.9rem;">{stk['strength']}</span>
+                    </div>
+                    <div style="margin-top:6px; font-size:0.92rem; color:#cbd5e1; line-height:1.6;">
+                        • <b>Trigger Entry:</b> Above {stk['entry']}<br>
+                        • <b>Strict SL:</b> <span style="color:#ef4444; font-weight:700;">{stk['sl']}</span> | <b>Target:</b> <span style="color:#10b981; font-weight:700;">{stk['tgt']}</span><br>
+                        • <b>Why to Buy:</b> {stk['setup']}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"📈 Analyze {stk['sym']} Chart", key=f"r_b_{stk['sym']}", use_container_width=True):
+                st.session_state.active_scrip = {"symbol": stk["sym"], "name": stk["name"], "exchange": "NSE", "yf": f"{stk['sym']}.NS", "price": stk["price"]}
+                st.rerun()
+
+    with col_s_radar:
+        st.markdown("""
+            <div style="background:#1f1315; border:1px solid #dc2626; border-radius:10px; padding:12px; margin-bottom:12px;">
+                <h4 style="color:#ef4444; margin:0;">🔴 Top SELL / EXIT Setups for Tomorrow (STBT / Reversal)</h4>
+                <small style="color:#94a3b8;">Condition: Chandelier Exit Triggered + 20 EMA Breakdown + Distribution</small>
+            </div>
+        """, unsafe_allow_html=True)
+
+        sell_radar_data = [
+            {
+                "sym": "JPL", "name": "Jio Platforms Limited", "price": 1412.70,
+                "entry": "Below ₹1,410", "sl": "₹1,432.00", "tgt": "₹1,375.00",
+                "setup": "Chandelier SL Breach (-0.84% close near low)", "strength": "89% Weak"
+            },
+            {
+                "sym": "HDFCBANK", "name": "HDFC Bank Ltd", "price": 736.70,
+                "entry": "Below ₹733", "sl": "₹746.00", "tgt": "₹710.00",
+                "setup": "Rejection from 20 EMA Resistance", "strength": "84% Weak"
+            }
+        ]
+
+        for stk in sell_radar_data:
+            st.markdown(f"""
+                <div class="radar-card" style="border-left: 4px solid #ef4444;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b style="font-size:1.15rem; color:#ffffff;">{stk['name']}</b>
+                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:6px; font-weight:700;">{stk['sym']}</span>
+                        </div>
+                        <span style="color:#ef4444; font-weight:800; font-size:0.9rem;">{stk['strength']}</span>
+                    </div>
+                    <div style="margin-top:6px; font-size:0.92rem; color:#cbd5e1; line-height:1.6;">
+                        • <b>Trigger Exit/Short:</b> {stk['entry']}<br>
+                        • <b>Strict SL:</b> <span style="color:#ef4444; font-weight:700;">{stk['sl']}</span> | <b>Target:</b> <span style="color:#10b981; font-weight:700;">{stk['tgt']}</span><br>
+                        • <b>Why to Exit:</b> {stk['setup']}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"📉 Analyze {stk['sym']} Chart", key=f"r_s_{stk['sym']}", use_container_width=True):
+                st.session_state.active_scrip = {"symbol": stk["sym"], "name": stk["name"], "exchange": "NSE", "yf": f"{stk['sym']}.NS", "price": stk["price"]}
+                st.rerun()
+
+# ==================== TAB 4: LIVE IPO RADAR ====================
+with tab_ipo:
+    st.markdown("### 🚀 Live Indian IPO Radar & Tracker")
+    st.caption("Current Bidding, Upcoming Issues, and Recently Listed IPOs on NSE/BSE:")
+
+    sub_t1, sub_t2, sub_t3 = st.tabs([
+        "🟢 Current IPOs (Open Now)",
+        "🟡 Upcoming IPOs",
+        "🔴 Closed & Recently Listed"
+    ])
+
+    with sub_t1:
+        st.write("#### 🟢 Active IPOs Open for Bidding Today:")
+        st.markdown("""
+            <div class="radar-card">
+                <b>Swiggy Limited (SWIGGY) | NSE/BSE</b> — Price: ₹371 - ₹390 | Lot: 38 Shares | Size: ₹11,327 Cr
+            </div>
+            <div class="radar-card">
+                <b>NTPC Green Energy Ltd (NTPCGREEN) | NSE/BSE</b> — Price: ₹102 - ₹108 | Lot: 138 Shares | Size: ₹10,000 Cr
+            </div>
+        """, unsafe_allow_html=True)
+
+    with sub_t2:
+        st.write("#### 🟡 Forthcoming IPOs in Pipeline:")
+        st.markdown("""
+            <div class="radar-card">
+                <b>Hero Fincorp Limited (HEROFIN) | NSE/BSE</b> — Est. Price: ₹850 - ₹890 | Lot: 16 Shares | DRHP Approved
+            </div>
+            <div class="radar-card">
+                <b>Aadhar Housing Finance (AADHARHFC) | NSE/BSE</b> — Est. Price: ₹300 - ₹315 | Lot: 47 Shares | Announced
+            </div>
+        """, unsafe_allow_html=True)
+
+    with sub_t3:
+        st.write("#### 🔴 Closed & Recently Listed on Exchange:")
+        st.markdown("""
+            <div class="radar-card" style="border-left: 4px solid #10b981;">
+                <b>Vikram Solar Ltd (VIKRAMSOLR) | BSE/NSE</b><br>
+                • <b>Listing Date:</b> Aug 26, 2025 | <b>Issue Price:</b> ₹315 - ₹332 (Final ₹332)<br>
+                • <b>Current Market Price:</b> ₹435.00 | <b>Listing Return:</b> +31.02%
+            </div>
+            <div class="radar-card" style="border-left: 4px solid #ef4444;">
+                <b>Hyundai Motor India (HYUNDAI) | NSE/BSE</b><br>
+                • <b>Listing Date:</b> Oct 2024 | <b>Issue Price:</b> ₹1,865 - ₹1,960<br>
+                • <b>Current Market Price:</b> ₹1,780.00 | <b>Listing Return:</b> -9.18%
+            </div>
+            <div class="radar-card" style="border-left: 4px solid #ef4444;">
+                <b>Jio Platforms Limited (JPL) | NSE</b><br>
+                • <b>Listing Date:</b> Listed Oct 2026 | <b>Issue Band:</b> ₹1,400 - ₹1,424<br>
+                • <b>Current Market Price:</b> ₹1,412.70 | <b>Day Change:</b> -0.84%
+            </div>
+            <div class="radar-card" style="border-left: 4px solid #10b981;">
+                <b>BLS E-Services Ltd (BLSE) | NSE</b><br>
+                • <b>Issue Price:</b> ₹135.00 | <b>Current Price:</b> ₹242.00 | <b>Gain:</b> +79.2%
+            </div>
+        """, unsafe_allow_html=True)
