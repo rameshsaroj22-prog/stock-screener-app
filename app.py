@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import requests
+import urllib.parse
 from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -11,15 +12,14 @@ import re
 
 # ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Pro Screener | TradingView Live Sync",
+    page_title="Pro Screener | TradingView & NSE Live Terminal",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- ULTRA-PRO HIGH CONTRAST & HEADER CSS -----------------
+# ----------------- ULTRA-PRO HIGH CONTRAST CSS -----------------
 st.markdown("""
     <style>
-    /* TOP HEADER & SHARE BUTTON FIX */
     header[data-testid="stHeader"] {
         background-color: #080c14 !important;
         border-bottom: 1px solid #1e293b !important;
@@ -86,15 +86,15 @@ st.markdown("""
         font-weight: 900 !important;
     }
 
-    /* UNIVERSAL BUTTONS */
+    /* BUTTONS */
     div[data-testid="stButton"] > button {
         background-color: #1e293b !important;
         color: #ffffff !important;
         border: 1px solid #475569 !important;
         border-radius: 8px !important;
         font-weight: 800 !important;
-        font-size: 1rem !important;
-        padding: 8px 18px !important;
+        font-size: 0.95rem !important;
+        padding: 6px 16px !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
         transition: all 0.2s ease !important;
     }
@@ -239,6 +239,18 @@ st.markdown("""
         font-size: 0.95rem;
     }
 
+    /* MATCH CARD ITEM */
+    .match-item {
+        background: #111726;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
     div[data-testid="stMetric"] {
         background-color: #111726;
         border: 1px solid #1e293b;
@@ -258,40 +270,16 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ----------------- PRO-GRADE STOCK DATABASE (UPDATED TO TODAY'S CLOSING) -----------------
-PRO_DATABASE = {
-    "JPL": {"name": "Jio Platforms Limited", "price": 1412.70, "prev": 1424.60, "yf": "JPL.NS", "sym": "JPL"},
-    "JIO": {"name": "Jio Platforms Limited", "price": 1412.70, "prev": 1424.60, "yf": "JPL.NS", "sym": "JPL"},
-    "JIOPLATFORMS": {"name": "Jio Platforms Limited", "price": 1412.70, "prev": 1424.60, "yf": "JPL.NS", "sym": "JPL"},
-    "ICICIBANK": {"name": "ICICI Bank Ltd", "price": 1424.10, "prev": 1424.50, "yf": "ICICIBANK.NS", "sym": "ICICIBANK"},
-    "ICICI": {"name": "ICICI Bank Ltd", "price": 1424.10, "prev": 1424.50, "yf": "ICICIBANK.NS", "sym": "ICICIBANK"},
-    "VIKRAM": {"name": "Vikram Solar Ltd", "price": 435.00, "prev": 428.00, "yf": "VIKRAMSOLR.BO", "sym": "VIKRAMSOLR"},
-    "VIKRAMSOLR": {"name": "Vikram Solar Ltd", "price": 435.00, "prev": 428.00, "yf": "VIKRAMSOLR.BO", "sym": "VIKRAMSOLR"},
-    "VIKRAM SOLAR": {"name": "Vikram Solar Ltd", "price": 435.00, "prev": 428.00, "yf": "VIKRAMSOLR.BO", "sym": "VIKRAMSOLR"},
-    "ORIENTCABL": {"name": "Orient Cables (India) Ltd", "price": 185.00, "prev": 182.50, "yf": "ORIENTCABL.NS", "sym": "ORIENTCABL"},
-    "ORIENT CABLE": {"name": "Orient Cables (India) Ltd", "price": 185.00, "prev": 182.50, "yf": "ORIENTCABL.NS", "sym": "ORIENTCABL"},
-    "COALINDIA": {"name": "Coal India Limited", "price": 408.00, "prev": 406.85, "yf": "COALINDIA.NS", "sym": "COALINDIA"},
-    "COAL": {"name": "Coal India Limited", "price": 408.00, "prev": 406.85, "yf": "COALINDIA.NS", "sym": "COALINDIA"},
-    "TCS": {"name": "Tata Consultancy Services Ltd", "price": 4145.00, "prev": 4120.00, "yf": "TCS.NS", "sym": "TCS"},
-    "HDFCBANK": {"name": "HDFC Bank Ltd", "price": 736.70, "prev": 725.50, "yf": "HDFCBANK.NS", "sym": "HDFCBANK"},
-    "JIOFIN": {"name": "Jio Financial Services Ltd", "price": 318.50, "prev": 314.20, "yf": "JIOFIN.NS", "sym": "JIOFIN"},
-    "BLS": {"name": "BLS International Services Ltd", "price": 372.50, "prev": 368.00, "yf": "BLS.NS", "sym": "BLS"},
-    "BLSE": {"name": "BLS E-Services Ltd", "price": 242.00, "prev": 239.50, "yf": "BLSE.NS", "sym": "BLSE"},
-    "SWIGGY": {"name": "Swiggy Ltd", "price": 485.00, "prev": 478.00, "yf": "SWIGGY.NS", "sym": "SWIGGY"},
-    "ZOMATO": {"name": "Zomato Ltd", "price": 262.00, "prev": 258.50, "yf": "ZOMATO.NS", "sym": "ZOMATO"},
-    "RELIANCE": {"name": "Reliance Industries Ltd", "price": 2748.00, "prev": 2735.00, "yf": "RELIANCE.NS", "sym": "RELIANCE"}
-}
-
 # ----------------- SESSION STATE WATCHLIST -----------------
 DEFAULT_WATCHLIST = [
-    {"symbol": "JPL", "name": "Jio Platforms Limited", "yf": "JPL.NS", "price": 1412.70},
-    {"symbol": "ICICIBANK", "name": "ICICI Bank Ltd", "yf": "ICICIBANK.NS", "price": 1424.10},
-    {"symbol": "COALINDIA", "name": "Coal India Limited", "yf": "COALINDIA.NS", "price": 408.00},
-    {"symbol": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "yf": "VIKRAMSOLR.BO", "price": 435.00},
-    {"symbol": "TCS", "name": "Tata Consultancy Services Ltd", "yf": "TCS.NS", "price": 4145.00},
-    {"symbol": "ORIENTCABL", "name": "Orient Cables (India) Ltd", "yf": "ORIENTCABL.NS", "price": 185.00},
-    {"symbol": "HDFCBANK", "name": "HDFC Bank Ltd", "yf": "HDFCBANK.NS", "price": 736.70},
-    {"symbol": "BLS", "name": "BLS International Services Ltd", "yf": "BLS.NS", "price": 372.50}
+    {"symbol": "JPL", "name": "Jio Platforms Limited", "exchange": "NSE", "yf": "JPL.NS", "price": 1412.70},
+    {"symbol": "BLS", "name": "BLS International Services Ltd", "exchange": "NSE", "yf": "BLS.NS", "price": 372.50},
+    {"symbol": "BLSE", "name": "BLS E-Services Ltd", "exchange": "NSE", "yf": "BLSE.NS", "price": 242.00},
+    {"symbol": "ICICIBANK", "name": "ICICI Bank Ltd", "exchange": "NSE", "yf": "ICICIBANK.NS", "price": 1424.10},
+    {"symbol": "COALINDIA", "name": "Coal India Limited", "exchange": "NSE", "yf": "COALINDIA.NS", "price": 408.00},
+    {"symbol": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "exchange": "BSE", "yf": "VIKRAMSOLR.BO", "price": 435.00},
+    {"symbol": "TCS", "name": "Tata Consultancy Services Ltd", "exchange": "NSE", "yf": "TCS.NS", "price": 4145.00},
+    {"symbol": "ORIENTCABL", "name": "Orient Cables (India) Ltd", "exchange": "NSE", "yf": "ORIENTCABL.NS", "price": 185.00}
 ]
 
 if "my_watchlist" not in st.session_state:
@@ -300,17 +288,86 @@ if "my_watchlist" not in st.session_state:
 if "active_scrip" not in st.session_state:
     st.session_state.active_scrip = st.session_state.my_watchlist[0]
 
-# ----------------- TRADINGVIEW SCANNER LIVE DATA ENGINE -----------------
+# ----------------- TRADINGVIEW & NSE REAL-TIME LIVE SEARCH -----------------
+@st.cache_data(ttl=60)
+def search_tradingview_and_nse(query):
+    """
+    Directly searches TradingView and NSE symbol repository.
+    Example: Searching 'BLS' returns BLS International, BLS E-Services, and all variants.
+    """
+    clean_q = query.strip()
+    if not clean_q:
+        return []
+
+    results = []
+    # 1. TradingView Symbol Search API
+    try:
+        encoded_q = urllib.parse.quote(clean_q)
+        tv_search_url = f"https://symbol-search.tradingview.com/symbol_search/v3/?text={encoded_q}&hl=1&exchange=NSE,BSE&lang=en"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(tv_search_url, headers=headers, timeout=3.5)
+        if r.status_code == 200:
+            data = r.json()
+            symbols = data.get("symbols", [])
+            for s in symbols:
+                sym = s.get("symbol", "").upper()
+                desc = s.get("description", "")
+                exch = s.get("exchange", "NSE").upper()
+                stype = s.get("type", "").lower()
+                
+                # Filter to equities/stocks on NSE or BSE
+                if exch in ["NSE", "BSE"] and (stype in ["stock", "equity", "dr", "fund"] or not stype):
+                    yf_sym = f"{sym}.NS" if exch == "NSE" else f"{sym}.BO"
+                    results.append({
+                        "symbol": sym,
+                        "name": desc if desc else f"{sym} Limited",
+                        "exchange": exch,
+                        "yf": yf_sym
+                    })
+    except Exception:
+        pass
+
+    # 2. Yahoo Finance Search Fallback
+    if len(results) < 2:
+        try:
+            yf_search_url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(clean_q)}&quotesCount=8"
+            r = requests.get(yf_search_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=3)
+            if r.status_code == 200:
+                quotes = r.json().get("quotes", [])
+                for q in quotes:
+                    sym = q.get("symbol", "")
+                    name = q.get("shortname") or q.get("longname") or sym
+                    if sym.endswith(".NS") or sym.endswith(".BO"):
+                        clean_sym = sym.replace(".NS", "").replace(".BO", "")
+                        exch = "NSE" if sym.endswith(".NS") else "BSE"
+                        results.append({
+                            "symbol": clean_sym,
+                            "name": name,
+                            "exchange": exch,
+                            "yf": sym
+                        })
+        except Exception:
+            pass
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_matches = []
+    for item in results:
+        key = (item["symbol"], item["exchange"])
+        if key not in seen:
+            seen.add(key)
+            unique_matches.append(item)
+
+    return unique_matches[:6]
+
+# ----------------- TRADINGVIEW SCANNER REAL-TIME PRICE FETCHER -----------------
 @st.cache_data(ttl=10)
-def fetch_tradingview_live_quote(ticker):
-    """
-    Directly queries TradingView's India Scanner API.
-    Provides 100% exact match with in.tradingview.com data without getting blocked.
-    """
+def fetch_tradingview_live_quote(symbol, exchange="NSE"):
+    """Fetches exact real-time LTP, Day Change % and points from TradingView's India scanner."""
+    clean_sym = symbol.replace(".NS", "").replace(".BO", "").strip().upper()
     url = "https://scanner.tradingview.com/india/scan"
-    clean_sym = ticker.replace(".NS", "").replace(".BO", "").strip().upper()
     payload = {
-        "symbols": {"tickers": [f"NSE:{clean_sym}", f"BSE:{clean_sym}"]},
+        "symbols": {"tickers": [f"{exchange}:{clean_sym}", f"NSE:{clean_sym}", f"BSE:{clean_sym}"]},
         "columns": ["close", "change", "change_abs", "description", "prev_close"]
     }
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -325,64 +382,38 @@ def fetch_tradingview_live_quote(ticker):
                     ltp = float(d[0])
                     pct = float(d[1]) if d[1] is not None else 0.0
                     chg_abs = float(d[2]) if d[2] is not None else 0.0
-                    desc = d[3] if len(d) > 3 and d[3] else f"{clean_sym} Ltd"
+                    desc = d[3] if len(d) > 3 and d[3] else f"{clean_sym} Limited"
                     prev = d[4] if len(d) > 4 and d[4] is not None else ltp - chg_abs
                     return {
                         "name": desc,
                         "price": ltp,
                         "change_pct": f"{pct:+.2f}%",
                         "chg_pts": chg_abs,
-                        "prev_close": prev,
-                        "source": "TradingView Live"
+                        "prev_close": prev
                     }
     except Exception:
         pass
 
-    # Fallback to Google Finance
-    g_url = f"https://www.google.com/finance/quote/{clean_sym}:NSE"
+    # Fallback to Yahoo Finance Fast Quote
     try:
-        gr = requests.get(g_url, headers=headers, timeout=3)
-        if gr.status_code == 200:
-            soup = BeautifulSoup(gr.text, "html.parser")
-            n = soup.find("div", class_="zzDege")
-            p = soup.find("div", class_="YMlKec fxKbKc")
-            pct_el = soup.find("div", class_="JwB6zf")
-            if p:
-                ltp = float(p.text.replace("₹", "").replace(",", "").strip())
-                return {
-                    "name": n.text.strip() if n else f"{clean_sym} Ltd",
-                    "price": ltp,
-                    "change_pct": pct_el.text.strip() if pct_el else "0.0%",
-                    "chg_pts": 0.0,
-                    "prev_close": ltp,
-                    "source": "Google Finance"
-                }
+        tkr = yf.Ticker(f"{clean_sym}.NS" if exchange == "NSE" else f"{clean_sym}.BO")
+        h = tkr.history(period="2d")
+        if not h.empty:
+            c = float(h['Close'].iloc[-1])
+            prev = float(h['Close'].iloc[-2]) if len(h) >= 2 else c
+            chg = c - prev
+            pct = (chg / prev) * 100 if prev else 0.0
+            return {
+                "name": f"{clean_sym} Limited",
+                "price": c,
+                "change_pct": f"{pct:+.2f}%",
+                "chg_pts": chg,
+                "prev_close": prev
+            }
     except Exception:
         pass
 
     return None
-
-def resolve_ticker_info(user_input):
-    raw = user_input.strip()
-    if "tradingview.com/symbols/" in raw:
-        match = re.search(r"symbols/([A-Za-z]+)-([A-Za-z0-9_]+)", raw)
-        if match:
-            raw = match.group(2).upper()
-    elif "google.com/finance/quote/" in raw:
-        match = re.search(r"quote/([A-Za-z0-9_]+):?([A-Za-z]*)", raw)
-        if match:
-            raw = match.group(1).upper()
-
-    cleaned = raw.upper()
-    for w in ["SHARE PRICE", "STOCK PRICE", "SHARE", "STOCK", "LIMITED", "LTD", "NSE", "BSE", ".NS", ".BO"]:
-        cleaned = re.sub(r'\b' + w + r'\b', '', cleaned)
-    cleaned = re.sub(r'[^A-Z0-9]', '', cleaned).strip()
-
-    for k, v in PRO_DATABASE.items():
-        if cleaned == k or (len(cleaned) >= 4 and (cleaned in k or k in cleaned)):
-            return v["sym"], v["name"], v["price"], v["yf"], v["prev"]
-
-    return cleaned if cleaned else "JPL", f"{cleaned} Ltd", 1412.70, f"{cleaned}.NS", 1424.60
 
 # ----------------- TIMEFRAME CANDLESTICK GENERATOR -----------------
 def generate_pro_candles_by_period(base_price, period_choice):
@@ -556,19 +587,19 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown("""
     <div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">
-        ● TradingView & NSE Real-Time Feed Active
+        ● TradingView & NSE Universal Database Active
     </div>
 """, unsafe_allow_html=True)
 
-# ----------------- PROMINENT SEARCH BAR -----------------
-st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (TradingView / Google / NSE):</p>', unsafe_allow_html=True)
+# ----------------- PROMINENT SEARCH BAR (UNIVERSAL AUTO-LOOKUP) -----------------
+st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (TradingView & NSE All Stocks):</p>', unsafe_allow_html=True)
 search_c1, search_c2, search_c3 = st.columns([7.4, 1.3, 1.3])
 
 with search_c1:
     search_query = st.text_input(
         "Search Box Input",
         value="",
-        placeholder="Type name (e.g. JPL, Vikram Solar, ICICI Bank, TCS, Coal India)..."
+        placeholder="Type any stock or partial name (e.g. BLS, Vikram Solar, JPL, Orient, Tata, ICICI)..."
     )
 
 with search_c2:
@@ -584,36 +615,62 @@ with search_c3:
         st.toast("📋 App Link Copied: https://stock-screener-app-david.streamlit.app", icon="🚀")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Match Card
+# ----------------- DISPLAY ALL MATCHING SEARCH RESULTS -----------------
 if search_query.strip():
-    s_sym, s_name, s_price, s_yf, s_prev = resolve_ticker_info(search_query)
-    # Check live TradingView scanner for searched ticker
-    tv_live = fetch_tradingview_live_quote(s_sym)
-    display_p = tv_live["price"] if tv_live else s_price
-    display_n = tv_live["name"] if tv_live else s_name
+    matches = search_tradingview_and_nse(search_query)
+    if matches:
+        st.markdown(f"#### 🎯 Matching Stocks Found for '{search_query.strip()}':")
+        for idx, item in enumerate(matches):
+            sym = item["symbol"]
+            exch = item["exchange"]
+            name = item["name"]
+            
+            # Real-time quote for each match
+            q_info = fetch_tradingview_live_quote(sym, exch)
+            live_p = q_info["price"] if q_info else 100.0
+            live_pct = q_info["change_pct"] if q_info else "0.0%"
+            p_color = "#10b981" if "+" in live_pct else "#ef4444"
 
-    st.markdown(f"""
-        <div style="background:#161f30; padding:12px 18px; border-radius:8px; border:1.5px solid #2563eb; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <b style="color:#ffffff; font-size:1.2rem;">🎯 Matched: {display_n} ({s_sym})</b>
-                <span style="color:#38bdf8; margin-left:14px; font-weight:800; font-size:1.1rem;">Live Price: ₹{display_p:,.2f}</span>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    act_c1, act_c2 = st.columns([2.5, 2.5])
-    with act_c1:
-        if st.button("📈 Open in Terminal", key="btn_open_terminal", use_container_width=True):
-            st.session_state.active_scrip = {"symbol": s_sym, "name": display_n, "yf": s_yf, "price": display_p}
-            st.rerun()
-    with act_c2:
-        st.markdown('<div class="add-btn">', unsafe_allow_html=True)
-        if st.button("➕ Add to My Watchlist", key="btn_add_watchlist", use_container_width=True):
-            if not any(w["symbol"] == s_sym for w in st.session_state.my_watchlist):
-                st.session_state.my_watchlist.append({"symbol": s_sym, "name": display_n, "yf": s_yf, "price": display_p})
-                st.success(f"{s_sym} added to Watchlist!")
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+            c_info, c_action1, c_action2 = st.columns([6.8, 1.6, 1.6])
+            with c_info:
+                st.markdown(f"""
+                    <div class="match-item">
+                        <div>
+                            <b style="color:#ffffff; font-size:1.1rem;">{name}</b>
+                            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{sym} | {exch}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <span style="font-size:1.15rem; font-weight:800; color:#ffffff;">₹{live_p:,.2f}</span>
+                            <span style="color:{p_color}; font-weight:800; margin-left:8px;">{live_pct}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            with c_action1:
+                if st.button(f"📈 Open", key=f"btn_open_{sym}_{idx}", use_container_width=True):
+                    st.session_state.active_scrip = {
+                        "symbol": sym,
+                        "name": name,
+                        "exchange": exch,
+                        "yf": item["yf"],
+                        "price": live_p
+                    }
+                    st.rerun()
+            with c_action2:
+                st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+                if st.button(f"➕ Watchlist", key=f"btn_add_{sym}_{idx}", use_container_width=True):
+                    if not any(w["symbol"] == sym for w in st.session_state.my_watchlist):
+                        st.session_state.my_watchlist.append({
+                            "symbol": sym,
+                            "name": name,
+                            "exchange": exch,
+                            "yf": item["yf"],
+                            "price": live_p
+                        })
+                        st.success(f"{sym} added to Watchlist!")
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.info(f"No listed Indian stock found for '{search_query}'. Please check the spelling.")
 
 # ----------------- HIGH-CONTRAST TABS -----------------
 tab_terminal, tab_watchlist = st.tabs([
@@ -626,11 +683,12 @@ with tab_terminal:
     active_obj = st.session_state.active_scrip
     active_sym = active_obj["symbol"]
     active_name = active_obj["name"]
+    active_exch = active_obj.get("exchange", "NSE")
     active_yf = active_obj.get("yf", f"{active_sym}.NS")
     known_price = active_obj.get("price", 1412.70)
 
-    # 1. Check TradingView Real-time Scanner API
-    tv_quote = fetch_tradingview_live_quote(active_sym)
+    # Real-time quote from TradingView
+    tv_quote = fetch_tradingview_live_quote(active_sym, active_exch)
     if tv_quote:
         live_price = tv_quote["price"]
         prev_close = tv_quote["prev_close"]
@@ -639,7 +697,7 @@ with tab_terminal:
         active_name = tv_quote["name"]
     else:
         live_price = known_price
-        prev_close = PRO_DATABASE.get(active_sym, {}).get("prev", live_price * 0.992)
+        prev_close = live_price * 0.992
         chg_pts = live_price - prev_close
         chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
         chg_pct_str = f"{chg_pct:+.2f}%"
@@ -716,14 +774,14 @@ with tab_terminal:
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <span class="stock-title">{active_name}</span>
-                    <span class="badge-nse">{active_sym} | NSE/BSE</span>
+                    <span class="badge-nse">{active_sym} | {active_exch}</span>
                 </div>
                 <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">
                     {verdict_badge}
                 </div>
             </div>
             <div style="display:flex; align-items:baseline; margin-top:4px;">
-                <span class="price-large">₹{ltp:,.2f}</span>
+                <span class="price-large">₹{live_price:,.2f}</span>
                 <span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>
             </div>
         </div>
@@ -861,11 +919,12 @@ with tab_watchlist:
     for item in st.session_state.my_watchlist:
         s_sym = item["symbol"]
         s_name = item["name"]
-        s_price = item.get("price", 1412.70)
+        s_exch = item.get("exchange", "NSE")
+        s_price = item.get("price", 100.0)
 
-        tv_w = fetch_tradingview_live_quote(s_sym)
+        tv_w = fetch_tradingview_live_quote(s_sym, s_exch)
         c_price = tv_w["price"] if tv_w else s_price
-        c_pct = tv_w["change_pct"] if tv_w else "-0.84%"
+        c_pct = tv_w["change_pct"] if tv_w else "0.0%"
 
         if c_price >= 400:
             sig = "🟢 BUY (LONG)"
@@ -879,6 +938,7 @@ with tab_watchlist:
 
         w_rows.append({
             "Symbol": s_sym,
+            "Exchange": s_exch,
             "Company Name": s_name,
             "Live Price": f"₹{c_price:,.2f}",
             "1-Day Change": c_pct,
