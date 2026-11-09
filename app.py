@@ -320,7 +320,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- ACCURATE LISTING DATES REGISTRY -----------------
-# Strictly prevents any pre-IPO ghost candles before official listing date
 STOCK_LISTING_REGISTRY = {
     "JPL": datetime.date(2026, 10, 5),          # JPL strictly listed October 2026
     "SWIGGY": datetime.date(2026, 11, 4),       # Swiggy Nov 2026
@@ -351,7 +350,7 @@ if "my_watchlist" not in st.session_state:
 if "active_scrip" not in st.session_state:
     st.session_state.active_scrip = st.session_state.my_watchlist[0]
 
-# ----------------- CLEAN HELPER TO SWITCH STOCKS (PREVENTS LINE TRUNCATION) -----------------
+# Helper to switch active scrip safely
 def open_stock_terminal(symbol, name, exchange="NSE", yf_sym=None, price=100.0):
     yf_clean = yf_sym if yf_sym else (f"{symbol}.BO" if exchange == "BSE" else f"{symbol}.NS")
     st.session_state.active_scrip = {
@@ -508,7 +507,6 @@ def generate_pro_candles_by_period(base_price, period_choice, symbol=None):
         else:
             target_start = today - datetime.timedelta(days=365 * 10)
 
-        # STRICT CLAMP TO LISTING DATE (NO AUGUST CANDLES FOR JPL)
         if listing_date:
             actual_start = max(target_start, listing_date)
         else:
@@ -672,7 +670,7 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown("""
     <div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">
-        ● Strict Listing Boundary Guard Active
+        ● Strict Listing Boundary & Chart Lock Active
     </div>
 """, unsafe_allow_html=True)
 
@@ -782,34 +780,39 @@ with tab_terminal:
         label_visibility="collapsed"
     )
 
-    df_data = pd.DataFrame()
-    timeframe_map = {
-        "1D": ("1d", "5m"),
-        "5D": ("5d", "15m"),
-        "1M": ("1mo", "1d"),
-        "6M": ("6mo", "1d"),
-        "YTD": ("ytd", "1d"),
-        "1Y": ("1y", "1d"),
-        "5Y": ("5y", "1wk"),
-        "Max": ("max", "1mo")
-    }
-    p_arg, i_arg = timeframe_map.get(selected_timeframe, ("6mo", "1d"))
+    # LOCK CHART IN SESSION STATE: PREVENTS CHART FROM CHANGING ON CAPITAL INPUT
+    cache_chart_key = f"df_{active_sym}_{selected_timeframe}"
+    if cache_chart_key not in st.session_state:
+        df_fetched = pd.DataFrame()
+        timeframe_map = {
+            "1D": ("1d", "5m"),
+            "5D": ("5d", "15m"),
+            "1M": ("1mo", "1d"),
+            "6M": ("6mo", "1d"),
+            "YTD": ("ytd", "1d"),
+            "1Y": ("1y", "1d"),
+            "5Y": ("5y", "1wk"),
+            "Max": ("max", "1mo")
+        }
+        p_arg, i_arg = timeframe_map.get(selected_timeframe, ("6mo", "1d"))
 
-    try:
-        df_data = yf.Ticker(active_yf).history(period=p_arg, interval=i_arg)
-    except Exception:
-        pass
+        try:
+            df_fetched = yf.Ticker(active_yf).history(period=p_arg, interval=i_arg)
+        except Exception:
+            pass
 
-    # STRICT LISTING DATE FILTER: REMOVES AUGUST / SEPTEMBER FOR JPL
-    known_listing = STOCK_LISTING_REGISTRY.get(active_sym, None)
-    if not df_data.empty and known_listing:
-        df_data = df_data[df_data.index.date >= known_listing]
+        known_listing = STOCK_LISTING_REGISTRY.get(active_sym, None)
+        if not df_fetched.empty and known_listing:
+            df_fetched = df_fetched[df_fetched.index.date >= known_listing]
 
-    if df_data.empty or len(df_data) < 3:
-        df_data = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe, symbol=active_sym)
+        if df_fetched.empty or len(df_fetched) < 3:
+            df_fetched = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe, symbol=active_sym)
 
-    df_data.loc[df_data.index[-1], 'Close'] = live_price
-    df_data = calculate_chandelier_exit(df_data, length=7, mult=2.0, use_close=True)
+        df_fetched.loc[df_fetched.index[-1], 'Close'] = live_price
+        df_fetched = calculate_chandelier_exit(df_fetched, length=7, mult=2.0, use_close=True)
+        st.session_state[cache_chart_key] = df_fetched
+
+    df_data = st.session_state[cache_chart_key].copy()
 
     ltp = float(df_data['Close'].iloc[-1])
     current_dir = int(df_data['Chandelier_Dir'].iloc[-1])
@@ -840,6 +843,7 @@ with tab_terminal:
     rr_num = round(abs(target_2 - ltp) / max(1.0, risk), 1)
     risk_reward = f"1 : {rr_num}"
 
+    known_listing = STOCK_LISTING_REGISTRY.get(active_sym, None)
     listing_note = ""
     if known_listing:
         listing_note = f"<span style='color:#38bdf8; font-size:0.8rem; margin-left:10px;'>• Listed: {known_listing.strftime('%d %b %Y')}</span>"
