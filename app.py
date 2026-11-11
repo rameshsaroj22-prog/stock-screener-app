@@ -26,7 +26,7 @@ def clean_html(raw_str):
 st.markdown("""
 <style>
 header[data-testid="stHeader"] {
-    background-color: #080c14 !important;
+    background-color: #8fce00 !important;
     border-bottom: 1px solid #1e293b !important;
 }
 header[data-testid="stHeader"] * {
