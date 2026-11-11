@@ -12,7 +12,7 @@ import re
 
 # ----------------- PAGE CONFIG -----------------
 st.set_page_config(
-    page_title="Pro Screener | Live Predictive Terminal & F&O Radar",
+    page_title="Pro Screener | Kotak Neo Terminal & Sector Radar",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -159,7 +159,7 @@ div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button spa
     border: 1px solid #475569 !important;
     border-bottom: none !important;
     border-radius: 8px 8px 0 0 !important;
-    padding: 10px 20px !important;
+    padding: 10px 18px !important;
 }
 .stTabs [data-baseweb="tab"] p, .stTabs [data-baseweb="tab"] span {
     color: #ffffff !important;
@@ -335,6 +335,15 @@ div[data-testid="stTextInput"] label {
     border-radius: 10px;
     padding: 14px 18px;
     margin-bottom: 12px;
+}
+
+/* SECTOR BOX STYLING */
+.sector-box {
+    background: #111726;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
 }
 
 div[data-testid="stMetric"] {
@@ -707,7 +716,7 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown(
     '<div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">'
-    '● Live Moving Chart & Predictive Trigger Engine Active'
+    '● Sector Baskets & Live Moving Terminal Online'
     '</div>',
     unsafe_allow_html=True
 )
@@ -770,9 +779,10 @@ if search_query.strip():
         st.info(f"No listed Indian stock found for '{search_query}'. Please check the spelling.")
 
 # ----------------- MAIN NAVIGATION TABS -----------------
-tab_terminal, tab_watchlist, tab_radar, tab_ipo = st.tabs([
+tab_terminal, tab_watchlist, tab_sectors, tab_radar, tab_ipo = st.tabs([
     "📈 Pro Trading Terminal",
     "📋 Manual Watchlist & Live Screener",
+    "🏢 Sector-wise Stocks Radar",
     "🎯 Next-Day Radar & F&O Breakouts",
     "🚀 Live IPO Radar (Dates, GMP & Analysis)"
 ])
@@ -860,7 +870,7 @@ with tab_terminal:
         prev_short_stop = float(df_data['Chandelier_Short'].iloc[-2]) if len(df_data) >= 2 else chan_stop
         prev_long_stop = float(df_data['Chandelier_Long'].iloc[-2]) if len(df_data) >= 2 else chan_stop
 
-        # PREDICTIVE SIGNAL DETECTOR (BEFORE CANDLE CLOSES)
+        # PREDICTIVE SIGNAL DETECTOR
         if prev_dir == -1:
             if ltp >= prev_short_stop:
                 pred_badge = "⚡ EARLY BUY TRIGGERED (Forming Candle Breaking Out!)"
@@ -1060,11 +1070,10 @@ with tab_terminal:
 
     render_live_moving_terminal(active_sym, active_name, active_exch, active_yf, known_price, selected_timeframe)
 
-# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER (WITH EARLY BREAKOUT COLUMN) ====================
+# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
 with tab_watchlist:
     st.markdown("### 📋 Advanced Multi-Stock Watchlist & Screener")
 
-    # Fast Evaluator for Early Breakout Trigger Status
     @st.cache_data(ttl=20)
     def evaluate_stock_breakout_status(sym, exch, live_p):
         try:
@@ -1078,7 +1087,6 @@ with tab_watchlist:
             prev_long = float(df['Chandelier_Long'].iloc[-2]) if len(df) >= 2 else float(df['Chandelier_Stop'].iloc[-1])
             current_dir = int(df['Chandelier_Dir'].iloc[-1])
             
-            # Check if running forming candle has crossed the short trigger
             if prev_dir == -1 and c >= prev_short:
                 return "⚡ EARLY BUY TRIGGERED (Forming Candle Breaking Out!)", "🟢 BUY", round(prev_long, 2), round(c * 1.035, 2)
             elif current_dir == 1:
@@ -1105,7 +1113,6 @@ with tab_watchlist:
         c_price = tv_w["price"] if tv_w else s_price
         c_pct = tv_w["change_pct"] if tv_w else "0.0%"
 
-        # Evaluate Early Breakout Alert
         early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(s_sym, s_exch, c_price)
 
         if "EARLY BUY TRIGGERED" in early_status:
@@ -1160,7 +1167,115 @@ with tab_watchlist:
             st.success(f"Removed {target_delete} from Watchlist!")
             st.rerun()
 
-# ==================== TAB 3: NEXT-DAY RADAR & F&O OPTIONS BREAKOUTS ====================
+# ==================== TAB 3: SECTOR-WISE STOCKS RADAR (NEW POWERFUL MODULE) ====================
+with tab_sectors:
+    st.markdown("### 🏢 Indian Industry & Sector-Wise Stocks Radar")
+    st.caption("Sector ke aadhar par institutional stocks scan karein, trend dekhein aur 1-click me Terminal me open karein:")
+
+    SECTOR_DATABASE = {
+        "🏦 Banking & Financial Services": [
+            {"sym": "HDFCBANK", "name": "HDFC Bank Ltd", "price": 736.70, "mcap": "Mega Cap", "desc": "India's largest private bank; key driver of Bank Nifty."},
+            {"sym": "ICICIBANK", "name": "ICICI Bank Ltd", "price": 1424.10, "mcap": "Mega Cap", "desc": "Top-tier asset quality and robust credit growth leader."},
+            {"sym": "SBIN", "name": "State Bank of India", "price": 842.00, "mcap": "Large Cap", "desc": "PSU banking giant commanding extensive retail network."},
+            {"sym": "KOTAKBANK", "name": "Kotak Mahindra Bank", "price": 1740.00, "mcap": "Large Cap", "desc": "High CASA ratio, premium retail banking brand."},
+            {"sym": "AXISBANK", "name": "Axis Bank Ltd", "price": 1135.00, "mcap": "Large Cap", "desc": "Strong digital banking and corporate recovery momentum."},
+            {"sym": "INDUSINDBK", "name": "IndusInd Bank Ltd", "price": 1025.00, "mcap": "Large Cap", "desc": "Commercial vehicle financing & microfinance presence."},
+            {"sym": "BANDHANBNK", "name": "Bandhan Bank Ltd", "price": 168.00, "mcap": "Mid Cap", "desc": "East India micro-credit & rural penetration franchise."}
+        ],
+        "💻 Information Technology (IT)": [
+            {"sym": "TCS", "name": "Tata Consultancy Services Ltd", "price": 4145.00, "mcap": "Mega Cap", "desc": "Global IT services leader with massive BFSI deal pipeline."},
+            {"sym": "INFY", "name": "Infosys Ltd", "price": 1860.00, "mcap": "Mega Cap", "desc": "Cloud, AI transformation and large enterprise software leader."},
+            {"sym": "WIPRO", "name": "Wipro Ltd", "price": 542.00, "mcap": "Large Cap", "desc": "Consulting and infrastructure engineering tech services."},
+            {"sym": "TECHM", "name": "Tech Mahindra Ltd", "price": 1640.00, "mcap": "Large Cap", "desc": "5G network solutions and global telecom tech services."},
+            {"sym": "BLSE", "name": "BLS E-Services Ltd", "price": 242.00, "mcap": "Small Cap", "desc": "Digital e-governance, banking correspondent and tech services."}
+        ],
+        "🚗 Automobile & EV": [
+            {"sym": "TATAMOTORS", "name": "Tata Motors Ltd", "price": 935.00, "mcap": "Mega Cap", "desc": "India EV market leader & JLR global luxury SUV recovery."},
+            {"sym": "MARUTI", "name": "Maruti Suzuki India", "price": 11150.00, "mcap": "Mega Cap", "desc": "Passenger car market dominator with hybrid/CNG expansion."},
+            {"sym": "HYUNDAI", "name": "Hyundai Motor India", "price": 1780.00, "mcap": "Mega Cap", "desc": "Premium SUV specialist and export manufacturing hub."},
+            {"sym": "M&M", "name": "Mahindra & Mahindra Ltd", "price": 2980.00, "mcap": "Large Cap", "desc": "Tractor kingpin and Thar/XUV flagship SUV leader."}
+        ],
+        "⚡ Energy, Power & Solar": [
+            {"sym": "RELIANCE", "name": "Reliance Industries Ltd", "price": 2748.00, "mcap": "Mega Cap", "desc": "Oil-to-Chemicals giant entering Giga-scale green hydrogen & solar."},
+            {"sym": "COALINDIA", "name": "Coal India Limited", "price": 408.00, "mcap": "Large Cap", "desc": "World's largest coal producer offering high dividend yields."},
+            {"sym": "NTPCGREEN", "name": "NTPC Green Energy Ltd", "price": 118.00, "mcap": "Large Cap", "desc": "Government flagship PSU for 60GW green renewable capacity."},
+            {"sym": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "price": 435.00, "mcap": "Mid Cap", "desc": "Solar PV module manufacturing and EPC solar installations."}
+        ],
+        "💊 Healthcare & Pharmaceuticals": [
+            {"sym": "SUNPHARMA", "name": "Sun Pharmaceutical Industries", "price": 1820.00, "mcap": "Mega Cap", "desc": "Global specialty dermatology and chronic therapy leader."},
+            {"sym": "DIVISLAB", "name": "Divi's Laboratories Ltd", "price": 5650.00, "mcap": "Large Cap", "desc": "High-margin Active Pharmaceutical Ingredients (API) exporter."}
+        ],
+        "🛒 FMCG, Consumer & Logistics": [
+            {"sym": "ITC", "name": "ITC Ltd", "price": 482.00, "mcap": "Mega Cap", "desc": "Cigarettes, packaged foods, paperboards and hotels conglomerate."},
+            {"sym": "SWIGGY", "name": "Swiggy Ltd", "price": 485.00, "mcap": "Large Cap", "desc": "Instamart quick commerce and on-demand food delivery leader."},
+            {"sym": "ZOMATO", "name": "Zomato Ltd", "price": 264.00, "mcap": "Large Cap", "desc": "Blinkit quick-commerce high growth margin expansion company."},
+            {"sym": "ORIENTCABL", "name": "Orient Cables (India) Ltd", "price": 185.00, "mcap": "Small Cap", "desc": "Industrial cables and infrastructure electrical wires."}
+        ]
+    }
+
+    sector_tabs = st.tabs(list(SECTOR_DATABASE.keys()))
+
+    for sec_idx, (sec_name, sec_stocks) in enumerate(SECTOR_DATABASE.items()):
+        with sector_tabs[sec_idx]:
+            sec_header = clean_html(f"""
+            <div style="background:#111726; border:1px solid #1e293b; padding:10px 14px; border-radius:8px; margin-bottom:12px;">
+            <b style="color:#38bdf8; font-size:1.1rem;">📊 {sec_name} — High-Volume Industry Basket</b><br>
+            <small style="color:#94a3b8;">Real-time price feed, category metrics aur 1-click execution support ke sath.</small>
+            </div>
+            """)
+            st.markdown(sec_header, unsafe_allow_html=True)
+
+            sec_cols = st.columns(2)
+            for s_idx, stk in enumerate(sec_stocks):
+                target_col = sec_cols[s_idx % 2]
+                
+                # Fetch live price
+                q = fetch_tradingview_live_quote(stk["sym"])
+                live_p = q["price"] if q else stk["price"]
+                chg_str = q["change_pct"] if q else "0.0%"
+                p_col = "#10b981" if "+" in chg_str else "#ef4444"
+
+                with target_col:
+                    card_markup = clean_html(f"""
+                    <div class="sector-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                    <b style="font-size:1.15rem; color:#ffffff;">{stk["name"]}</b>
+                    <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:6px; font-weight:700;">{stk["sym"]}</span>
+                    </div>
+                    <span style="background:#1e293b; color:#cbd5e1; padding:2px 8px; border-radius:4px; font-size:0.78rem;">{stk["mcap"]}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:6px;">
+                    <span style="font-size:1.3rem; font-weight:900; color:#ffffff;">₹{live_p:,.2f}</span>
+                    <span style="color:{p_col}; font-weight:800; font-size:1rem;">{chg_str}</span>
+                    </div>
+                    <div style="margin-top:4px; font-size:0.85rem; color:#94a3b8;">
+                    {stk["desc"]}
+                    </div>
+                    </div>
+                    """)
+                    st.markdown(card_markup, unsafe_allow_html=True)
+
+                    btn_c1, btn_c2 = st.columns(2)
+                    with btn_c1:
+                        if st.button(f"📈 Open Chart", key=f"sec_open_{stk['sym']}_{sec_idx}_{s_idx}", use_container_width=True):
+                            open_stock_terminal(stk["sym"], stk["name"], "NSE", f"{stk['sym']}.NS", live_p)
+                    with btn_c2:
+                        st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+                        if st.button(f"➕ Watchlist", key=f"sec_add_{stk['sym']}_{sec_idx}_{s_idx}", use_container_width=True):
+                            if not any(w["symbol"] == stk["sym"] for w in st.session_state.my_watchlist):
+                                st.session_state.my_watchlist.append({
+                                    "symbol": stk["sym"],
+                                    "name": stk["name"],
+                                    "exchange": "NSE",
+                                    "yf": f"{stk['sym']}.NS",
+                                    "price": live_p
+                                })
+                                st.success(f"{stk['sym']} added to Watchlist!")
+                                st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+# ==================== TAB 4: NEXT-DAY RADAR & F&O OPTIONS BREAKOUTS ====================
 with tab_radar:
     st.markdown("### 🎯 Tomorrow's High-Conviction Setups & Institutional Radar")
     st.caption("Cash Stock Breakouts, FII Heavy Accumulation (Smart Money Flow), aur Nifty/Bank Nifty Options (CE/PE):")
@@ -1495,7 +1610,7 @@ with tab_radar:
         """)
         st.markdown(guide_html, unsafe_allow_html=True)
 
-# ==================== TAB 4: LIVE IPO RADAR ====================
+# ==================== TAB 5: LIVE IPO RADAR ====================
 with tab_ipo:
     st.markdown("### 🚀 Live Indian IPO Radar & Tracker (NSE & BSE)")
     st.caption("Live Dates, GMP, Subscription Demand, Fundamentals aur Institutional Recommendation:")
