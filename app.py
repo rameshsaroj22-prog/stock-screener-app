@@ -12,7 +12,7 @@ import re
 
 # ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
 st.set_page_config(
-    page_title="Pro Screener | Kotak Neo Terminal & F&O Radar",
+    page_title="Pro Screener | Kotak Neo Terminal & FII Radar",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -142,13 +142,6 @@ div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button spa
 .reset-btn button {
     background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%) !important;
     border: 1px solid #ef4444 !important;
-    color: #ffffff !important;
-    font-weight: 900 !important;
-}
-
-.share-btn button {
-    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important;
-    border: 1px solid #3b82f6 !important;
     color: #ffffff !important;
     font-weight: 900 !important;
 }
@@ -315,6 +308,15 @@ div[data-testid="stTextInput"] label {
 .option-box-pe {
     background: #1f1114;
     border: 1.5px solid #ef4444;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+}
+
+/* FII RADAR CARDS */
+.fii-box {
+    background: #101625;
+    border: 1.5px solid #38bdf8;
     border-radius: 10px;
     padding: 14px 18px;
     margin-bottom: 12px;
@@ -691,14 +693,14 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown(
     '<div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">'
-    '● Nifty & Bank Nifty F&O Engine Online'
+    '● FII Smart Money Radar & Options Online'
     '</div>',
     unsafe_allow_html=True
 )
 
-# ----------------- PROMINENT SEARCH BAR -----------------
+# ----------------- PROMINENT SEARCH BAR (SINGLE SHARE IN HEADER) -----------------
 st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (TradingView & NSE All Stocks):</p>', unsafe_allow_html=True)
-search_c1, search_c2, search_c3 = st.columns([7.4, 1.3, 1.3])
+search_c1, search_c2 = st.columns([8.4, 1.6])
 
 with search_c1:
     search_query = st.text_input(
@@ -711,12 +713,6 @@ with search_c2:
     st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
     if st.button("🔄 Reset", use_container_width=True):
         open_stock_terminal("JPL", "Jio Platforms Limited", "NSE", "JPL.NS", 1412.70)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-with search_c3:
-    st.markdown('<div class="share-btn">', unsafe_allow_html=True)
-    if st.button("🔗 Share", use_container_width=True):
-        st.toast("📋 App Link Copied: https://stock-screener-app-david.streamlit.app", icon="🚀")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ----------------- CLICKABLE NAME SEARCH RESULTS -----------------
@@ -1069,12 +1065,13 @@ with tab_watchlist:
 
 # ==================== TAB 3: NEXT-DAY RADAR & F&O OPTIONS BREAKOUTS ====================
 with tab_radar:
-    st.markdown("### 🎯 Tomorrow's High-Conviction Setups & Index Options Radar")
-    st.caption("Cash Stock Breakouts/Breakdowns ke sath Nifty 50 aur Bank Nifty Options (Call CE / Put PE) Execution Levels:")
+    st.markdown("### 🎯 Tomorrow's High-Conviction Setups & Institutional Radar")
+    st.caption("Cash Stock Breakouts, FII Heavy Accumulation (Smart Money Flow), aur Nifty/Bank Nifty Options (CE/PE):")
 
-    radar_sub1, radar_sub2, radar_sub3 = st.tabs([
+    radar_sub1, radar_sub2, radar_sub3, radar_sub4 = st.tabs([
         "🟢 Top 20 Best BUY Stocks (BTST / Long)",
         "🔴 Top 20 Best SELL Stocks (STBT / Short)",
+        "🏦 FII Heavy Accumulation (Smart Money Flow)",
         "⚡ Nifty & Bank Nifty Options (CE / PE Breakouts)"
     ])
 
@@ -1182,8 +1179,101 @@ with tab_radar:
                 if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
                     open_stock_terminal(stk["sym"], stk["name"], "NSE", f"{stk['sym']}.NS", stk["price"])
 
-    # ---------------- 3. NIFTY & BANK NIFTY F&O (CE / PE) BREAKOUTS ----------------
+    # ---------------- 3. FII HEAVY ACCUMULATION (SMART MONEY RADAR) ----------------
     with radar_sub3:
+        fii_hdr = clean_html("""
+        <div style="background:#101625; border:1.5px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
+        <b style="color:#38bdf8; font-size:1.15rem;">🏦 FII HEAVY ACCUMULATION & INSTITUTIONAL INFLOW RADAR</b><br>
+        <small style="color:#cbd5e1;">Ye wo stocks hain jisme Foreign Institutional Investors (FIIs) ka heavy interest aur consistent stake expansion chal raha hai. FII stocks me institutional support hone ke karan retail buyers ko momentum ka bada fayda milta hai.</small>
+        </div>
+        """)
+        st.markdown(fii_hdr, unsafe_allow_html=True)
+
+        fii_stocks = [
+            {
+                "sym": "HDFCBANK", "name": "HDFC Bank Ltd", "price": 736.70,
+                "fii_holding": "53.8%", "fii_action": "+1.85% Stake Added (MSCI Inflow Surge)",
+                "delivery": "68.4% (Heavy Institutional Buying)",
+                "why": "FIIs ka sabse pasandida private bank. Institutional base hone se ₹725-730 zone me strong floor bana hua hai.",
+                "entry": "Above ₹742", "sl": "₹724.00", "tgt": "₹785.00"
+            },
+            {
+                "sym": "ICICIBANK", "name": "ICICI Bank Ltd", "price": 1424.10,
+                "fii_holding": "45.2%", "fii_action": "Sustained Month-on-Month Inflow (+2.1%)",
+                "delivery": "64.2% Delivery Ratio",
+                "why": "Asset quality aur credit growth me sector leader. FIIs continuous dips par accumulate kar rahe hain.",
+                "entry": "Above ₹1,428", "sl": "₹1,402.00", "tgt": "₹1,475.00"
+            },
+            {
+                "sym": "BHARTIARTL", "name": "Bharti Airtel Ltd", "price": 1620.00,
+                "fii_holding": "25.6%", "fii_action": "+3.4% FII Stake Jump (ARPU Surge)",
+                "delivery": "71.0% High Delivery",
+                "why": "Telecom tariff hikes se operating cash flow double hone ke karan global funds ka continuous inflow.",
+                "entry": "Above ₹1,626", "sl": "₹1,588.00", "tgt": "₹1,710.00"
+            },
+            {
+                "sym": "LT", "name": "Larsen & Toubro Ltd", "price": 3610.00,
+                "fii_holding": "24.1%", "fii_action": "Sovereign Wealth Funds Aggressive Accumulation",
+                "delivery": "61.5% Delivery Ratio",
+                "why": "Record high orderbook (₹5 Lakh Cr+). Global infra funds ka core portfolio holding.",
+                "entry": "Above ₹3,625", "sl": "₹3,540.00", "tgt": "₹3,780.00"
+            },
+            {
+                "sym": "SUNPHARMA", "name": "Sun Pharmaceutical Industries", "price": 1820.00,
+                "fii_holding": "18.3%", "fii_action": "+1.2% QoQ Institutional Accumulation",
+                "delivery": "65.8% Delivery Volume",
+                "why": "Specialty pharma pipeline me multi-year high margins. Defensive aur growth dono me FII top pick.",
+                "entry": "Above ₹1,828", "sl": "₹1,785.00", "tgt": "₹1,910.00"
+            },
+            {
+                "sym": "TCS", "name": "Tata Consultancy Services Ltd", "price": 4145.00,
+                "fii_holding": "12.5%", "fii_action": "Steady Foreign Institutional Safe-Haven Allocation",
+                "delivery": "59.4% Delivery Ratio",
+                "why": "BFSI tech spending rebound par FIIs IT basket me sabse pehle TCS accumulate karte hain.",
+                "entry": "Above ₹4,160", "sl": "₹4,080.00", "tgt": "₹4,300.00"
+            },
+            {
+                "sym": "NTPCGREEN", "name": "NTPC Green Energy Ltd", "price": 118.00,
+                "fii_holding": "High Anchor Base", "fii_action": "Mega FII Anchor Book (100% Institutional Interest)",
+                "delivery": "74.0% Expected Delivery Lock-in",
+                "why": "Global ESG aur clean energy mandate funds ka fresh capital injection. Long term multi-bagger potential.",
+                "entry": "Above ₹120", "sl": "₹112.00", "tgt": "₹135.00"
+            },
+            {
+                "sym": "RELIANCE", "name": "Reliance Industries Ltd", "price": 2748.00,
+                "fii_holding": "21.7%", "fii_action": "FII Accumulation at 200-DMA Support",
+                "delivery": "62.3% Delivery Ratio",
+                "why": "Jio Platforms aur Retail value unlocking ke chalte global institutional funds low levels par buying kar rahe hain.",
+                "entry": "Above ₹2,758", "sl": "₹2,710.00", "tgt": "₹2,840.00"
+            }
+        ]
+
+        fii_cols = st.columns(2)
+        for k, f_stk in enumerate(fii_stocks):
+            with fii_cols[k % 2]:
+                fii_card_html = clean_html(f"""
+                <div class="fii-box">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                <b style="font-size:1.15rem; color:#ffffff;">{f_stk["name"]}</b>
+                <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.78rem; margin-left:6px; font-weight:700;">{f_stk["sym"]}</span>
+                </div>
+                <span style="background:#38bdf825; color:#38bdf8; border:1px solid #38bdf8; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">FII Holding: {f_stk["fii_holding"]}</span>
+                </div>
+                <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
+                • <b>FII Activity:</b> <span style="color:#10b981; font-weight:700;">{f_stk["fii_action"]}</span><br>
+                • <b>Delivery Volume:</b> {f_stk["delivery"]}<br>
+                • <b>Trigger Entry:</b> <b style="color:#ffffff;">{f_stk["entry"]}</b> | <b>SL:</b> <span style="color:#ef4444;">{f_stk["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{f_stk["tgt"]}</span><br>
+                • <b>Why to Buy:</b> {f_stk["why"]}
+                </div>
+                </div>
+                """)
+                st.markdown(fii_card_html, unsafe_allow_html=True)
+                if st.button(f"📈 Analyze FII Stock: {f_stk['sym']}", key=f"btn_fii_{f_stk['sym']}_{k}", use_container_width=True):
+                    open_stock_terminal(f_stk["sym"], f_stk["name"], "NSE", f"{f_stk['sym']}.NS", f_stk["price"])
+
+    # ---------------- 4. NIFTY & BANK NIFTY F&O (CE / PE) BREAKOUTS ----------------
+    with radar_sub4:
         opt_hdr = clean_html("""
         <div style="background:#131c2e; border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
         <b style="color:#38bdf8; font-size:1.15rem;">⚡ NIFTY 50 & BANK NIFTY F&O INTRADAY BREAKOUT RADAR</b><br>
