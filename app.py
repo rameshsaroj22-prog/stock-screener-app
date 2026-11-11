@@ -10,23 +10,22 @@ from plotly.subplots import make_subplots
 import datetime
 import re
 
-# ----------------- PAGE CONFIG (ZERO SCROLL ONE-PAGE) -----------------
+# ----------------- PAGE CONFIG -----------------
 st.set_page_config(
-    page_title="Pro Screener | Kotak Neo Terminal & FII Radar",
+    page_title="Pro Screener | Live Predictive Terminal & F&O Radar",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# ----------------- HELPER: PREVENT COMMONMARK HTML LEAKS -----------------
+# ----------------- HELPER: CLEAN HTML -----------------
 def clean_html(raw_str):
-    """Strips all leading/trailing whitespace on every line to prevent Markdown code-block parsing."""
     return "\n".join(line.strip() for line in raw_str.strip().splitlines())
 
-# ----------------- ULTRA-PRO HIGH CONTRAST & MODEBAR LEFT CSS -----------------
+# ----------------- ULTRA-PRO HIGH CONTRAST CSS -----------------
 st.markdown("""
 <style>
 header[data-testid="stHeader"] {
-    background-color: #8fce00 !important;
+    background-color: #080c14 !important;
     border-bottom: 1px solid #1e293b !important;
 }
 header[data-testid="stHeader"] * {
@@ -42,7 +41,6 @@ header[data-testid="stHeader"] a {
     padding: 4px 12px !important;
 }
 
-/* PLOTLY TOOLBAR (ZOOM, PAN, FULLSCREEN) SHIFT TO LEFT */
 .js-plotly-plot .plotly .modebar {
     left: 12px !important;
     right: auto !important;
@@ -66,7 +64,6 @@ header[data-testid="stHeader"] a {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-/* TIMEFRAME PILL BAR */
 div[data-testid="stRadio"] > div {
     display: flex !important;
     flex-direction: row !important;
@@ -102,7 +99,6 @@ div[data-testid="stRadio"] label[data-checked="true"] p {
     font-weight: 900 !important;
 }
 
-/* UNIVERSAL BUTTONS */
 div[data-testid="stButton"] > button {
     background-color: #1e293b !important;
     color: #ffffff !important;
@@ -124,7 +120,6 @@ div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button spa
     font-weight: 800 !important;
 }
 
-/* CLICKABLE STOCK CARD BUTTON */
 .stock-click-btn button {
     background: #111726 !important;
     border: 1px solid #1e293b !important;
@@ -153,7 +148,6 @@ div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button spa
     font-weight: 900 !important;
 }
 
-/* TABS */
 .stTabs [data-baseweb="tab-list"] {
     gap: 12px;
     border-bottom: 2px solid #334155;
@@ -181,7 +175,6 @@ div[data-testid="stButton"] > button p, div[data-testid="stButton"] > button spa
     font-weight: 900 !important;
 }
 
-/* SEARCH BAR */
 .search-title {
     color: #38bdf8 !important;
     font-size: 1.1rem !important;
@@ -192,7 +185,6 @@ div[data-testid="stTextInput"] label {
     display: none !important;
 }
 
-/* STOCK CARD */
 .neo-card {
     background: linear-gradient(135deg, #131c2e 0%, #0d131f 100%);
     border: 1px solid #1e293b;
@@ -263,6 +255,31 @@ div[data-testid="stTextInput"] label {
     font-size: 0.95rem;
 }
 
+/* PREDICTIVE SIGNAL RADAR BANNER */
+.predictive-box {
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.predictive-buy {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1.5px solid #10b981;
+    color: #10b981;
+}
+.predictive-sell {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1.5px solid #ef4444;
+    color: #ef4444;
+}
+.predictive-hold {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1.5px solid #38bdf8;
+    color: #38bdf8;
+}
+
 .ipo-box {
     background: #111726;
     border: 1px solid #1e293b;
@@ -313,7 +330,6 @@ div[data-testid="stTextInput"] label {
     margin-bottom: 12px;
 }
 
-/* FII RADAR CARDS */
 .fii-box {
     background: #101625;
     border: 1.5px solid #38bdf8;
@@ -446,7 +462,6 @@ def search_tradingview_and_nse(query):
     return unique_matches[:6]
 
 # ----------------- TRADINGVIEW SCANNER REAL-TIME QUOTE -----------------
-@st.cache_data(ttl=10)
 def fetch_tradingview_live_quote(symbol, exchange="NSE"):
     clean_sym = symbol.replace(".NS", "").replace(".BO", "").strip().upper()
     url = "https://scanner.tradingview.com/india/scan"
@@ -456,7 +471,7 @@ def fetch_tradingview_live_quote(symbol, exchange="NSE"):
     }
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        r = requests.post(url, json=payload, headers=headers, timeout=3)
+        r = requests.post(url, json=payload, headers=headers, timeout=2.5)
         if r.status_code == 200:
             rows = r.json().get("data", [])
             if rows:
@@ -497,7 +512,7 @@ def fetch_tradingview_live_quote(symbol, exchange="NSE"):
 
     return None
 
-# ----------------- DYNAMIC CANDLE GENERATOR (STRICT LISTING DATE CLAMP) -----------------
+# ----------------- DYNAMIC CANDLE GENERATOR -----------------
 def generate_pro_candles_by_period(base_price, period_choice, symbol=None):
     today = datetime.date.today()
     listing_date = STOCK_LISTING_REGISTRY.get(symbol, None)
@@ -693,12 +708,12 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown(
     '<div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">'
-    '● FII Smart Money Radar & Options Online'
+    '● Live Moving Chart & Predictive Trigger Engine Active'
     '</div>',
     unsafe_allow_html=True
 )
 
-# ----------------- PROMINENT SEARCH BAR (SINGLE SHARE IN HEADER) -----------------
+# ----------------- PROMINENT SEARCH BAR -----------------
 st.markdown('<p class="search-title">🔎 LIVE SCRIP SEARCH (TradingView & NSE All Stocks):</p>', unsafe_allow_html=True)
 search_c1, search_c2 = st.columns([8.4, 1.6])
 
@@ -757,13 +772,13 @@ if search_query.strip():
 
 # ----------------- MAIN NAVIGATION TABS -----------------
 tab_terminal, tab_watchlist, tab_radar, tab_ipo = st.tabs([
-    "📈 Live Chart & Strategy Terminal",
+    "📈 Pro Trading Terminal",
     "📋 Manual Watchlist & Live Screener",
     "🎯 Next-Day Radar & F&O Breakouts",
     "🚀 Live IPO Radar (Dates, GMP & Analysis)"
 ])
 
-# ==================== TAB 1: ONE-PAGE TERMINAL ====================
+# ==================== TAB 1: ONE-PAGE TERMINAL (LIVE AUTO-MOVING FRAGMENT) ====================
 with tab_terminal:
     active_obj = st.session_state.active_scrip
     active_sym = active_obj["symbol"]
@@ -771,24 +786,6 @@ with tab_terminal:
     active_exch = active_obj.get("exchange", "NSE")
     active_yf = active_obj.get("yf", f"{active_sym}.NS")
     known_price = active_obj.get("price", 1412.70)
-
-    tv_quote = fetch_tradingview_live_quote(active_sym, active_exch)
-    if tv_quote:
-        live_price = tv_quote["price"]
-        prev_close = tv_quote["prev_close"]
-        chg_pts = tv_quote["chg_pts"]
-        chg_pct_str = tv_quote["change_pct"]
-        active_name = tv_quote["name"]
-    else:
-        live_price = known_price
-        prev_close = live_price * 0.992
-        chg_pts = live_price - prev_close
-        chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
-        chg_pct_str = f"{chg_pct:+.2f}%"
-
-    is_up = chg_pts >= 0
-    pill_class = "change-green" if is_up else "change-red"
-    sign = "+" if is_up else ""
 
     selected_timeframe = st.radio(
         "Time Horizon",
@@ -798,203 +795,282 @@ with tab_terminal:
         label_visibility="collapsed"
     )
 
-    cache_chart_key = f"df_{active_sym}_{selected_timeframe}"
-    if cache_chart_key not in st.session_state:
-        df_fetched = pd.DataFrame()
-        timeframe_map = {
-            "1D": ("1d", "5m"),
-            "5D": ("5d", "15m"),
-            "1M": ("1mo", "1d"),
-            "6M": ("6mo", "1d"),
-            "YTD": ("ytd", "1d"),
-            "1Y": ("1y", "1d"),
-            "5Y": ("5y", "1wk"),
-            "Max": ("max", "1mo")
-        }
-        p_arg, i_arg = timeframe_map.get(selected_timeframe, ("6mo", "1d"))
+    # ----------------- LIVE CHART & PREDICTIVE RADAR FRAGMENT (AUTO 5S REFRESH) -----------------
+    @st.fragment(run_every=5)
+    def render_live_moving_terminal(active_sym, active_name, active_exch, active_yf, known_price, selected_timeframe):
+        # 1. Fetch Real-Time LTP
+        tv_quote = fetch_tradingview_live_quote(active_sym, active_exch)
+        if tv_quote:
+            live_price = tv_quote["price"]
+            prev_close = tv_quote["prev_close"]
+            chg_pts = tv_quote["chg_pts"]
+            chg_pct_str = tv_quote["change_pct"]
+            active_name = tv_quote["name"]
+        else:
+            live_price = known_price
+            prev_close = live_price * 0.992
+            chg_pts = live_price - prev_close
+            chg_pct = (chg_pts / prev_close) * 100 if prev_close else 0.0
+            chg_pct_str = f"{chg_pct:+.2f}%"
 
-        try:
-            df_fetched = yf.Ticker(active_yf).history(period=p_arg, interval=i_arg)
-        except Exception:
-            pass
+        is_up = chg_pts >= 0
+        pill_class = "change-green" if is_up else "change-red"
+        sign = "+" if is_up else ""
+
+        # 2. History Base Data (Cached per Scrip/Timeframe)
+        cache_chart_key = f"df_{active_sym}_{selected_timeframe}"
+        if cache_chart_key not in st.session_state:
+            df_fetched = pd.DataFrame()
+            timeframe_map = {
+                "1D": ("1d", "5m"),
+                "5D": ("5d", "15m"),
+                "1M": ("1mo", "1d"),
+                "6M": ("6mo", "1d"),
+                "YTD": ("ytd", "1d"),
+                "1Y": ("1y", "1d"),
+                "5Y": ("5y", "1wk"),
+                "Max": ("max", "1mo")
+            }
+            p_arg, i_arg = timeframe_map.get(selected_timeframe, ("6mo", "1d"))
+
+            try:
+                df_fetched = yf.Ticker(active_yf).history(period=p_arg, interval=i_arg)
+            except Exception:
+                pass
+
+            known_listing = STOCK_LISTING_REGISTRY.get(active_sym, None)
+            if not df_fetched.empty and known_listing:
+                df_fetched = df_fetched[df_fetched.index.date >= known_listing]
+
+            if df_fetched.empty or len(df_fetched) < 3:
+                df_fetched = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe, symbol=active_sym)
+
+            st.session_state[cache_chart_key] = df_fetched
+
+        # 3. Dynamically Move the Latest Candle with Real-Time LTP
+        df_data = st.session_state[cache_chart_key].copy()
+        df_data.loc[df_data.index[-1], 'Close'] = live_price
+        df_data.loc[df_data.index[-1], 'High'] = max(df_data.loc[df_data.index[-1], 'High'], live_price)
+        df_data.loc[df_data.index[-1], 'Low'] = min(df_data.loc[df_data.index[-1], 'Low'], live_price)
+
+        # 4. Calculate Indicators
+        df_data = calculate_chandelier_exit(df_data, length=7, mult=2.0, use_close=True)
+
+        ltp = float(df_data['Close'].iloc[-1])
+        current_dir = int(df_data['Chandelier_Dir'].iloc[-1])
+        chan_stop = float(df_data['Chandelier_Stop'].iloc[-1])
+        atr_val = float(df_data['ATR'].iloc[-1])
+        ema20_val = float(df_data['EMA_20'].iloc[-1])
+
+        # Previous Candle Direction (To Predict Forming Candle Signal)
+        prev_dir = int(df_data['Chandelier_Dir'].iloc[-2]) if len(df_data) >= 2 else current_dir
+        prev_short_stop = float(df_data['Chandelier_Short'].iloc[-2]) if len(df_data) >= 2 else chan_stop
+        prev_long_stop = float(df_data['Chandelier_Long'].iloc[-2]) if len(df_data) >= 2 else chan_stop
+
+        # 5. PREDICTIVE SIGNAL DETECTOR (BEFORE CANDLE CLOSES)
+        if prev_dir == -1:
+            # Running under Bearish trend: Check if forming candle crosses short stop
+            if ltp >= prev_short_stop:
+                pred_badge = "⚡ EARLY BUY TRIGGERED (Forming Candle Breaking Out!)"
+                pred_css = "predictive-buy"
+                pred_msg = f"Running candle ne ₹{prev_short_stop:,.2f} trigger cross kar diya hai! Candle close hone se pehle hi BUY trend form ho raha hai."
+            else:
+                diff_pts = prev_short_stop - ltp
+                diff_pct = (diff_pts / ltp) * 100
+                pred_badge = "⏳ PREDICTIVE BUY WATCH"
+                pred_css = "predictive-hold"
+                pred_msg = f"Agla BUY Trigger Level: <b>₹{prev_short_stop:,.2f}</b> (Early signal aane me sirf <b>{diff_pts:,.2f} pts / {diff_pct:.2f}%</b> baki hai)."
+        else:
+            # Running under Bullish trend: Check if forming candle drops below long stop
+            if ltp <= prev_long_stop:
+                pred_badge = "⚡ EARLY SELL / EXIT TRIGGERED (Forming Candle Breakdown!)"
+                pred_css = "predictive-sell"
+                pred_msg = f"Running candle ne ₹{prev_long_stop:,.2f} trailing support tod diya hai! Candle close se pehle hi EXIT signal trigger ho raha hai."
+            else:
+                diff_pts = ltp - prev_long_stop
+                diff_pct = (diff_pts / ltp) * 100
+                pred_badge = "🟢 BULLISH MOMENTUM SECURE"
+                pred_css = "predictive-buy"
+                pred_msg = f"Early SELL Trigger Level: <b>₹{prev_long_stop:,.2f}</b> (Current price trailing support se <b>{diff_pts:,.2f} pts (+{diff_pct:.2f}%)</b> safe upar hai)."
+
+        if current_dir == 1:
+            verdict_badge = "🟢 CHANDELIER BUY (LONG)"
+            verdict_color = "#10b981"
+            stop_loss = round(chan_stop, 2)
+            risk = max(2.0, ltp - stop_loss)
+            target_1 = round(ltp + (risk * 1.5), 2)
+            target_2 = round(ltp + (risk * 2.5), 2)
+            sl_pct_val = round((ltp - stop_loss) / ltp * 100, 1) if ltp > 0 else 0.0
+        else:
+            verdict_badge = "🔴 CHANDELIER EXIT / SHORT"
+            verdict_color = "#ef4444"
+            stop_loss = round(chan_stop, 2)
+            risk = max(2.0, stop_loss - ltp)
+            target_1 = round(ltp - (risk * 1.5), 2)
+            target_2 = round(ltp - (risk * 2.5), 2)
+            sl_pct_val = round((stop_loss - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+
+        t1_pct_val = round(abs(target_1 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+        t2_pct_val = round(abs(target_2 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
+        entry_high_val = ltp * 1.005
+        rr_num = round(abs(target_2 - ltp) / max(1.0, risk), 1)
+        risk_reward = f"1 : {rr_num}"
 
         known_listing = STOCK_LISTING_REGISTRY.get(active_sym, None)
-        if not df_fetched.empty and known_listing:
-            df_fetched = df_fetched[df_fetched.index.date >= known_listing]
+        listing_note = ""
+        if known_listing:
+            listing_note = f"<span style='color:#38bdf8; font-size:0.8rem; margin-left:10px;'>• Listed: {known_listing.strftime('%d %b %Y')}</span>"
 
-        if df_fetched.empty or len(df_fetched) < 3:
-            df_fetched = generate_pro_candles_by_period(base_price=live_price, period_choice=selected_timeframe, symbol=active_sym)
+        # 6. Render Terminal Header
+        header_html = clean_html(f"""
+        <div class="neo-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div><span class="stock-title">{active_name}</span><span class="badge-nse">{active_sym} | {active_exch}</span>{listing_note}</div>
+        <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">{verdict_badge}</div>
+        </div>
+        <div style="display:flex; align-items:baseline; margin-top:4px;">
+        <span class="price-large">₹{live_price:,.2f}</span>
+        <span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>
+        <span style="color:#94a3b8; font-size:0.85rem; margin-left:16px;">⚡ Auto-Refreshing Live (5s Tick)</span>
+        </div>
+        </div>
+        """)
+        st.markdown(header_html, unsafe_allow_html=True)
 
-        df_fetched.loc[df_fetched.index[-1], 'Close'] = live_price
-        df_fetched = calculate_chandelier_exit(df_fetched, length=7, mult=2.0, use_close=True)
-        st.session_state[cache_chart_key] = df_fetched
+        # 7. Render Predictive Signal Banner
+        predictive_html = clean_html(f"""
+        <div class="predictive-box {pred_css}">
+        <div>
+        <b>{pred_badge}</b><br>
+        <small style="color:#ffffff;">{pred_msg}</small>
+        </div>
+        <div style="text-align:right;">
+        <span style="font-size:0.8rem; color:#94a3b8;">EARLY TRIGGER RADAR</span><br>
+        <b>₹{prev_short_stop if prev_dir == -1 else prev_long_stop:,.2f}</b>
+        </div>
+        </div>
+        """)
+        st.markdown(predictive_html, unsafe_allow_html=True)
 
-    df_data = st.session_state[cache_chart_key].copy()
+        col_chart, col_advisor = st.columns([7.3, 2.7])
 
-    ltp = float(df_data['Close'].iloc[-1])
-    current_dir = int(df_data['Chandelier_Dir'].iloc[-1])
-    chan_stop = float(df_data['Chandelier_Stop'].iloc[-1])
-    atr_val = float(df_data['ATR'].iloc[-1])
-    ema20_val = float(df_data['EMA_20'].iloc[-1])
+        with col_chart:
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
 
-    if current_dir == 1:
-        verdict_badge = "🟢 CHANDELIER BUY (LONG)"
-        verdict_color = "#10b981"
-        stop_loss = round(chan_stop, 2)
-        risk = max(2.0, ltp - stop_loss)
-        target_1 = round(ltp + (risk * 1.5), 2)
-        target_2 = round(ltp + (risk * 2.5), 2)
-        sl_pct_val = round((ltp - stop_loss) / ltp * 100, 1) if ltp > 0 else 0.0
-    else:
-        verdict_badge = "🔴 CHANDELIER EXIT / SHORT"
-        verdict_color = "#ef4444"
-        stop_loss = round(chan_stop, 2)
-        risk = max(2.0, stop_loss - ltp)
-        target_1 = round(ltp - (risk * 1.5), 2)
-        target_2 = round(ltp - (risk * 2.5), 2)
-        sl_pct_val = round((stop_loss - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
-
-    t1_pct_val = round(abs(target_1 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
-    t2_pct_val = round(abs(target_2 - ltp) / ltp * 100, 1) if ltp > 0 else 0.0
-    entry_high_val = ltp * 1.005
-    rr_num = round(abs(target_2 - ltp) / max(1.0, risk), 1)
-    risk_reward = f"1 : {rr_num}"
-
-    known_listing = STOCK_LISTING_REGISTRY.get(active_sym, None)
-    listing_note = ""
-    if known_listing:
-        listing_note = f"<span style='color:#38bdf8; font-size:0.8rem; margin-left:10px;'>• Listed: {known_listing.strftime('%d %b %Y')}</span>"
-
-    header_html = clean_html(f"""
-    <div class="neo-card">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-    <div><span class="stock-title">{active_name}</span><span class="badge-nse">{active_sym} | {active_exch}</span>{listing_note}</div>
-    <div style="background:{verdict_color}25; border:2px solid {verdict_color}; color:{verdict_color}; padding:6px 18px; border-radius:20px; font-weight:800; font-size:1.05rem;">{verdict_badge}</div>
-    </div>
-    <div style="display:flex; align-items:baseline; margin-top:4px;">
-    <span class="price-large">₹{live_price:,.2f}</span>
-    <span class="{pill_class}">{sign}{chg_pts:,.2f} ({chg_pct_str})</span>
-    </div>
-    </div>
-    """)
-    st.markdown(header_html, unsafe_allow_html=True)
-
-    col_chart, col_advisor = st.columns([7.3, 2.7])
-
-    with col_chart:
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=[0.78, 0.22])
-
-        fig.add_trace(go.Candlestick(
-            x=df_data.index, open=df_data['Open'], high=df_data['High'], low=df_data['Low'], close=df_data['Close'],
-            name='Price'
-        ), row=1, col=1)
-
-        fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.2), name='20 EMA'), row=1, col=1)
-
-        fig.add_trace(go.Scatter(
-            x=df_data.index,
-            y=df_data['Chandelier_Stop'],
-            line=dict(color='#10b981' if current_dir == 1 else '#ef4444', width=2, dash='dot'),
-            name='Chandelier SL (7, 2.0)'
-        ), row=1, col=1)
-
-        buys = df_data[df_data['Buy_Signal'].notna()]
-        if not buys.empty:
-            buy_labels = []
-            for dt_val in buys.index:
-                if hasattr(dt_val, 'hour') and dt_val.hour != 0:
-                    t_str = dt_val.strftime('%d %b %H:%M')
-                else:
-                    t_str = dt_val.strftime('%d %b')
-                buy_labels.append(f"BUY<br>{t_str}")
-
-            fig.add_trace(go.Scatter(
-                x=buys.index, y=buys['Buy_Signal'],
-                mode='markers+text',
-                marker=dict(symbol='triangle-up', size=16, color='#10b981', line=dict(width=1, color='white')),
-                text=buy_labels,
-                textposition='bottom center',
-                textfont=dict(color='#10b981', size=10, family="Arial Black"),
-                name='Chandelier BUY'
+            fig.add_trace(go.Candlestick(
+                x=df_data.index, open=df_data['Open'], high=df_data['High'], low=df_data['Low'], close=df_data['Close'],
+                name='Price'
             ), row=1, col=1)
 
-        sells = df_data[df_data['Sell_Signal'].notna()]
-        if not sells.empty:
-            sell_labels = []
-            for dt_val in sells.index:
-                if hasattr(dt_val, 'hour') and dt_val.hour != 0:
-                    t_str = dt_val.strftime('%d %b %H:%M')
-                else:
-                    t_str = dt_val.strftime('%d %b')
-                sell_labels.append(f"EXIT<br>{t_str}")
+            fig.add_trace(go.Scatter(x=df_data.index, y=df_data['EMA_20'], line=dict(color='#38bdf8', width=1.2), name='20 EMA'), row=1, col=1)
 
             fig.add_trace(go.Scatter(
-                x=sells.index, y=sells['Sell_Signal'],
-                mode='markers+text',
-                marker=dict(symbol='triangle-down', size=16, color='#ef4444', line=dict(width=1, color='white')),
-                text=sell_labels,
-                textposition='top center',
-                textfont=dict(color='#ef4444', size=10, family="Arial Black"),
-                name='Chandelier EXIT'
+                x=df_data.index,
+                y=df_data['Chandelier_Stop'],
+                line=dict(color='#10b981' if current_dir == 1 else '#ef4444', width=2, dash='dot'),
+                name='Chandelier SL (7, 2.0)'
             ), row=1, col=1)
 
-        vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df_data.iterrows()]
-        fig.add_trace(go.Bar(x=df_data.index, y=df_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
+            buys = df_data[df_data['Buy_Signal'].notna()]
+            if not buys.empty:
+                buy_labels = []
+                for dt_val in buys.index:
+                    if hasattr(dt_val, 'hour') and dt_val.hour != 0:
+                        t_str = dt_val.strftime('%d %b %H:%M')
+                    else:
+                        t_str = dt_val.strftime('%d %b')
+                    buy_labels.append(f"BUY<br>{t_str}")
 
-        fig.update_layout(
-            height=410,
-            margin=dict(l=5, r=5, t=10, b=5),
-            xaxis_rangeslider_visible=False,
-            template="plotly_dark",
-            paper_bgcolor="#080c14",
-            plot_bgcolor="#080c14",
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                font=dict(color="#ffffff", size=13, family="Segoe UI"),
-                bgcolor="rgba(17, 23, 38, 0.95)",
-                bordercolor="#475569",
-                borderwidth=1
+                fig.add_trace(go.Scatter(
+                    x=buys.index, y=buys['Buy_Signal'],
+                    mode='markers+text',
+                    marker=dict(symbol='triangle-up', size=16, color='#10b981', line=dict(width=1, color='white')),
+                    text=buy_labels,
+                    textposition='bottom center',
+                    textfont=dict(color='#10b981', size=10, family="Arial Black"),
+                    name='Chandelier BUY'
+                ), row=1, col=1)
+
+            sells = df_data[df_data['Sell_Signal'].notna()]
+            if not sells.empty:
+                sell_labels = []
+                for dt_val in sells.index:
+                    if hasattr(dt_val, 'hour') and dt_val.hour != 0:
+                        t_str = dt_val.strftime('%d %b %H:%M')
+                    else:
+                        t_str = dt_val.strftime('%d %b')
+                    sell_labels.append(f"EXIT<br>{t_str}")
+
+                fig.add_trace(go.Scatter(
+                    x=sells.index, y=sells['Sell_Signal'],
+                    mode='markers+text',
+                    marker=dict(symbol='triangle-down', size=16, color='#ef4444', line=dict(width=1, color='white')),
+                    text=sell_labels,
+                    textposition='top center',
+                    textfont=dict(color='#ef4444', size=10, family="Arial Black"),
+                    name='Chandelier EXIT'
+                ), row=1, col=1)
+
+            vol_colors = ['#10b981' if r['Close'] >= r['Open'] else '#ef4444' for _, r in df_data.iterrows()]
+            fig.add_trace(go.Bar(x=df_data.index, y=df_data['Volume'], marker_color=vol_colors, name='Volume'), row=2, col=1)
+
+            fig.update_layout(
+                height=410,
+                margin=dict(l=5, r=5, t=10, b=5),
+                xaxis_rangeslider_visible=False,
+                template="plotly_dark",
+                paper_bgcolor="#080c14",
+                plot_bgcolor="#080c14",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1,
+                    font=dict(color="#ffffff", size=13, family="Segoe UI"),
+                    bgcolor="rgba(17, 23, 38, 0.95)",
+                    bordercolor="#475569",
+                    borderwidth=1
+                )
             )
-        )
-        st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
-    with col_advisor:
-        advisor_html = clean_html(f"""
-        <div class="advisor-box">
-        <div class="advisor-header">🛡️ Chandelier (7, 2.0) Plan</div>
-        <div class="level-row"><span style="color:#94a3b8;">Chandelier Trend</span><b style="color:{verdict_color};">{verdict_badge}</b></div>
-        <div class="level-row"><span style="color:#94a3b8;">Entry Reference</span><b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b></div>
-        <div class="level-row"><span style="color:#94a3b8;">Chandelier Trailing SL</span><b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b></div>
-        <div class="level-row"><span style="color:#94a3b8;">Target 1 (1.5x Risk)</span><b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b></div>
-        <div class="level-row"><span style="color:#94a3b8;">Target 2 (2.5x Risk)</span><b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b></div>
-        <div class="level-row" style="border-bottom:none;"><span style="color:#94a3b8;">Risk-to-Reward</span><b style="color:#38bdf8;">{risk_reward}</b></div>
-        </div>
-        """)
-        st.markdown(advisor_html, unsafe_allow_html=True)
+        with col_advisor:
+            advisor_html = clean_html(f"""
+            <div class="advisor-box">
+            <div class="advisor-header">🛡️ Chandelier (7, 2.0) Plan</div>
+            <div class="level-row"><span style="color:#94a3b8;">Chandelier Trend</span><b style="color:{verdict_color};">{verdict_badge}</b></div>
+            <div class="level-row"><span style="color:#94a3b8;">Entry Reference</span><b style="color:#ffffff;">₹{ltp:,.2f} - ₹{entry_high_val:,.2f}</b></div>
+            <div class="level-row"><span style="color:#94a3b8;">Chandelier Trailing SL</span><b style="color:#ef4444;">₹{stop_loss:,.2f} ({sl_pct_val}%)</b></div>
+            <div class="level-row"><span style="color:#94a3b8;">Target 1 (1.5x Risk)</span><b style="color:#10b981;">₹{target_1:,.2f} ({t1_pct_val}%)</b></div>
+            <div class="level-row"><span style="color:#94a3b8;">Target 2 (2.5x Risk)</span><b style="color:#10b981;">₹{target_2:,.2f} ({t2_pct_val}%)</b></div>
+            <div class="level-row" style="border-bottom:none;"><span style="color:#94a3b8;">Risk-to-Reward</span><b style="color:#38bdf8;">{risk_reward}</b></div>
+            </div>
+            """)
+            st.markdown(advisor_html, unsafe_allow_html=True)
 
-        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-        my_budget = st.number_input("Capital to Deploy (₹):", min_value=1000, value=25000, step=5000)
-        calc_qty = int(my_budget // ltp) if ltp > 0 else 0
-        total_risk = round(calc_qty * abs(ltp - stop_loss), 2)
+            st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+            my_budget = st.number_input("Capital to Deploy (₹):", min_value=1000, value=25000, step=5000, key=f"inp_{active_sym}")
+            calc_qty = int(my_budget // ltp) if ltp > 0 else 0
+            total_risk = round(calc_qty * abs(ltp - stop_loss), 2)
 
-        budget_html = clean_html(f"""
-        <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
-        • <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
-        • <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
-        </div>
-        """)
-        st.markdown(budget_html, unsafe_allow_html=True)
+            budget_html = clean_html(f"""
+            <div style="background:#131c2e; padding:8px 12px; border-radius:6px; font-size:0.9rem; border:1px solid #1e293b;">
+            • <b>Order Quantity:</b> <span style="color:#38bdf8; font-weight:800;">{calc_qty} Shares</span><br>
+            • <b>Risk at Chandelier SL:</b> <span style="color:#ef4444; font-weight:800;">₹{total_risk:,.2f}</span>
+            </div>
+            """)
+            st.markdown(budget_html, unsafe_allow_html=True)
 
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Chandelier Stop (7, 2.0)", f"₹{chan_stop:,.2f}")
-    m2.metric("ATR Volatility (7)", f"₹{atr_val:,.2f}")
-    m3.metric("Trend State", "BULLISH" if current_dir == 1 else "BEARISH")
-    m4.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
-    m5.metric("Target 1 (1.5x Risk)", f"₹{target_1:,.2f}")
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Chandelier Stop (7, 2.0)", f"₹{chan_stop:,.2f}")
+        m2.metric("ATR Volatility (7)", f"₹{atr_val:,.2f}")
+        m3.metric("Trend State", "BULLISH" if current_dir == 1 else "BEARISH")
+        m4.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
+        m5.metric("Target 1 (1.5x Risk)", f"₹{target_1:,.2f}")
+
+    # Invoke live moving fragment
+    render_live_moving_terminal(active_sym, active_name, active_exch, active_yf, known_price, selected_timeframe)
 
 # ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
 with tab_watchlist:
@@ -1075,7 +1151,6 @@ with tab_radar:
         "⚡ Nifty & Bank Nifty Options (CE / PE Breakouts)"
     ])
 
-    # ---------------- 1. 20 BEST BUY STOCKS ----------------
     with radar_sub1:
         hdr_b = clean_html("""
         <div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1127,7 +1202,6 @@ with tab_radar:
                 if st.button(f"📈 Analyze {s['sym']}", key=f"r_b_{s['sym']}_{i}", use_container_width=True):
                     open_stock_terminal(s["sym"], s["name"], "NSE", f"{s['sym']}.NS", s["price"])
 
-    # ---------------- 2. 20 BEST SELL STOCKS ----------------
     with radar_sub2:
         hdr_s = clean_html("""
         <div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1157,410 +1231,4 @@ with tab_radar:
             {"sym": "BATAINDIA", "name": "Bata India Ltd", "price": 1340.00, "entry": "Below ₹1,328", "sl": "₹1,365.00", "tgt": "₹1,270.00", "setup": "Persistent Institutional Outflow Down-trend", "score": "84%"},
             {"sym": "DIVISLAB", "name": "Divi's Laboratories Ltd", "price": 5650.00, "entry": "Below ₹5,600", "sl": "₹5,750.00", "tgt": "₹5,380.00", "setup": "API Segment Margin Pressure Selloff", "score": "83%"},
             {"sym": "SAIL", "name": "Steel Authority of India", "price": 115.00, "entry": "Below ₹113.50", "sl": "₹118.00", "tgt": "₹106.00", "setup": "Metals Correction + 20 EMA Gap Down", "score": "83%"},
-            {"sym": "ZEEL", "name": "Zee Entertainment Enterprises", "price": 118.00, "entry": "Below ₹116.00", "sl": "₹122.00", "tgt": "₹106.00", "setup": "Consolidation Floor Breakdown", "score": "82%"}
-        ]
-
-        s_cols = st.columns(2)
-        for j, stk in enumerate(top_20_sells):
-            with s_cols[j % 2]:
-                card_s_html = clean_html(f"""
-                <div style="background:#111726; border:1px solid #1e293b; border-left:4px solid #ef4444; border-radius:8px; padding:12px; margin-bottom:10px;">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                <b>{stk["name"]} <span style="color:#38bdf8;">({stk["sym"]})</span></b>
-                <span style="color:#ef4444; font-weight:800;">{stk["score"]}</span>
-                </div>
-                <div style="margin-top:4px; font-size:0.88rem; color:#cbd5e1;">
-                • <b>Trigger Exit:</b> {stk["entry"]} | <b>SL:</b> <span style="color:#ef4444;">{stk["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{stk["tgt"]}</span><br>
-                • <b>Setup:</b> {stk["setup"]}
-                </div>
-                </div>
-                """)
-                st.markdown(card_s_html, unsafe_allow_html=True)
-                if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
-                    open_stock_terminal(stk["sym"], stk["name"], "NSE", f"{stk['sym']}.NS", stk["price"])
-
-    # ---------------- 3. FII HEAVY ACCUMULATION (SMART MONEY RADAR) ----------------
-    with radar_sub3:
-        fii_hdr = clean_html("""
-        <div style="background:#101625; border:1.5px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
-        <b style="color:#38bdf8; font-size:1.15rem;">🏦 FII HEAVY ACCUMULATION & INSTITUTIONAL INFLOW RADAR</b><br>
-        <small style="color:#cbd5e1;">Ye wo stocks hain jisme Foreign Institutional Investors (FIIs) ka heavy interest aur consistent stake expansion chal raha hai. FII stocks me institutional support hone ke karan retail buyers ko momentum ka bada fayda milta hai.</small>
-        </div>
-        """)
-        st.markdown(fii_hdr, unsafe_allow_html=True)
-
-        fii_stocks = [
-            {
-                "sym": "HDFCBANK", "name": "HDFC Bank Ltd", "price": 736.70,
-                "fii_holding": "53.8%", "fii_action": "+1.85% Stake Added (MSCI Inflow Surge)",
-                "delivery": "68.4% (Heavy Institutional Buying)",
-                "why": "FIIs ka sabse pasandida private bank. Institutional base hone se ₹725-730 zone me strong floor bana hua hai.",
-                "entry": "Above ₹742", "sl": "₹724.00", "tgt": "₹785.00"
-            },
-            {
-                "sym": "ICICIBANK", "name": "ICICI Bank Ltd", "price": 1424.10,
-                "fii_holding": "45.2%", "fii_action": "Sustained Month-on-Month Inflow (+2.1%)",
-                "delivery": "64.2% Delivery Ratio",
-                "why": "Asset quality aur credit growth me sector leader. FIIs continuous dips par accumulate kar rahe hain.",
-                "entry": "Above ₹1,428", "sl": "₹1,402.00", "tgt": "₹1,475.00"
-            },
-            {
-                "sym": "BHARTIARTL", "name": "Bharti Airtel Ltd", "price": 1620.00,
-                "fii_holding": "25.6%", "fii_action": "+3.4% FII Stake Jump (ARPU Surge)",
-                "delivery": "71.0% High Delivery",
-                "why": "Telecom tariff hikes se operating cash flow double hone ke karan global funds ka continuous inflow.",
-                "entry": "Above ₹1,626", "sl": "₹1,588.00", "tgt": "₹1,710.00"
-            },
-            {
-                "sym": "LT", "name": "Larsen & Toubro Ltd", "price": 3610.00,
-                "fii_holding": "24.1%", "fii_action": "Sovereign Wealth Funds Aggressive Accumulation",
-                "delivery": "61.5% Delivery Ratio",
-                "why": "Record high orderbook (₹5 Lakh Cr+). Global infra funds ka core portfolio holding.",
-                "entry": "Above ₹3,625", "sl": "₹3,540.00", "tgt": "₹3,780.00"
-            },
-            {
-                "sym": "SUNPHARMA", "name": "Sun Pharmaceutical Industries", "price": 1820.00,
-                "fii_holding": "18.3%", "fii_action": "+1.2% QoQ Institutional Accumulation",
-                "delivery": "65.8% Delivery Volume",
-                "why": "Specialty pharma pipeline me multi-year high margins. Defensive aur growth dono me FII top pick.",
-                "entry": "Above ₹1,828", "sl": "₹1,785.00", "tgt": "₹1,910.00"
-            },
-            {
-                "sym": "TCS", "name": "Tata Consultancy Services Ltd", "price": 4145.00,
-                "fii_holding": "12.5%", "fii_action": "Steady Foreign Institutional Safe-Haven Allocation",
-                "delivery": "59.4% Delivery Ratio",
-                "why": "BFSI tech spending rebound par FIIs IT basket me sabse pehle TCS accumulate karte hain.",
-                "entry": "Above ₹4,160", "sl": "₹4,080.00", "tgt": "₹4,300.00"
-            },
-            {
-                "sym": "NTPCGREEN", "name": "NTPC Green Energy Ltd", "price": 118.00,
-                "fii_holding": "High Anchor Base", "fii_action": "Mega FII Anchor Book (100% Institutional Interest)",
-                "delivery": "74.0% Expected Delivery Lock-in",
-                "why": "Global ESG aur clean energy mandate funds ka fresh capital injection. Long term multi-bagger potential.",
-                "entry": "Above ₹120", "sl": "₹112.00", "tgt": "₹135.00"
-            },
-            {
-                "sym": "RELIANCE", "name": "Reliance Industries Ltd", "price": 2748.00,
-                "fii_holding": "21.7%", "fii_action": "FII Accumulation at 200-DMA Support",
-                "delivery": "62.3% Delivery Ratio",
-                "why": "Jio Platforms aur Retail value unlocking ke chalte global institutional funds low levels par buying kar rahe hain.",
-                "entry": "Above ₹2,758", "sl": "₹2,710.00", "tgt": "₹2,840.00"
-            }
-        ]
-
-        fii_cols = st.columns(2)
-        for k, f_stk in enumerate(fii_stocks):
-            with fii_cols[k % 2]:
-                fii_card_html = clean_html(f"""
-                <div class="fii-box">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                <b style="font-size:1.15rem; color:#ffffff;">{f_stk["name"]}</b>
-                <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.78rem; margin-left:6px; font-weight:700;">{f_stk["sym"]}</span>
-                </div>
-                <span style="background:#38bdf825; color:#38bdf8; border:1px solid #38bdf8; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">FII Holding: {f_stk["fii_holding"]}</span>
-                </div>
-                <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
-                • <b>FII Activity:</b> <span style="color:#10b981; font-weight:700;">{f_stk["fii_action"]}</span><br>
-                • <b>Delivery Volume:</b> {f_stk["delivery"]}<br>
-                • <b>Trigger Entry:</b> <b style="color:#ffffff;">{f_stk["entry"]}</b> | <b>SL:</b> <span style="color:#ef4444;">{f_stk["sl"]}</span> | <b>Target:</b> <span style="color:#10b981;">{f_stk["tgt"]}</span><br>
-                • <b>Why to Buy:</b> {f_stk["why"]}
-                </div>
-                </div>
-                """)
-                st.markdown(fii_card_html, unsafe_allow_html=True)
-                if st.button(f"📈 Analyze FII Stock: {f_stk['sym']}", key=f"btn_fii_{f_stk['sym']}_{k}", use_container_width=True):
-                    open_stock_terminal(f_stk["sym"], f_stk["name"], "NSE", f"{f_stk['sym']}.NS", f_stk["price"])
-
-    # ---------------- 4. NIFTY & BANK NIFTY F&O (CE / PE) BREAKOUTS ----------------
-    with radar_sub4:
-        opt_hdr = clean_html("""
-        <div style="background:#131c2e; border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
-        <b style="color:#38bdf8; font-size:1.15rem;">⚡ NIFTY 50 & BANK NIFTY F&O INTRADAY BREAKOUT RADAR</b><br>
-        <small style="color:#cbd5e1;">Spot Index Support/Resistance ke aadhar par Call (CE) buying aur Put (PE) buying triggers with Option Premium Targets & SL.</small>
-        </div>
-        """)
-        st.markdown(opt_hdr, unsafe_allow_html=True)
-
-        nifty_spot = idx_res.get("NIFTY 50", {}).get("price", 24150.0)
-        bn_spot = idx_res.get("BANK NIFTY", {}).get("price", 51850.0)
-
-        n_atm_ce = int(round(nifty_spot / 50.0) * 50)
-        n_atm_pe = n_atm_ce
-        bn_atm_ce = int(round(bn_spot / 100.0) * 100)
-        bn_atm_pe = bn_atm_ce
-
-        opt_col1, opt_col2 = st.columns(2)
-
-        # NIFTY 50 OPTIONS BREAKOUT
-        with opt_col1:
-            nifty_card = clean_html(f"""
-            <div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h4 style="margin:0; color:#ffffff;">🇮🇳 NIFTY 50 F&O RADAR</h4>
-            <span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{nifty_spot:,.2f}</span>
-            </div>
-            <small style="color:#94a3b8;">Weekly Expiry Contract | PCR: <b>0.92 (Neutral-Bullish)</b></small>
-            </div>
-            """)
-            st.markdown(nifty_card, unsafe_allow_html=True)
-
-            nce_html = clean_html(f"""
-            <div class="option-box-ce">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <b style="color:#10b981; font-size:1.2rem;">🟢 NIFTY {n_atm_ce} CALL (CE) BREAKOUT</b>
-            <span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BULLISH EXPANSION</span>
-            </div>
-            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
-            • <b>Spot Trigger Level:</b> Above <b>₹{nifty_spot + 45:,.0f}</b> (15-Min Candle Close)<br>
-            • <b>Option Premium Entry:</b> Buy between <b>₹125 - ₹135</b><br>
-            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹95</span> (Risk: 35 Pts / ₹875 per lot)<br>
-            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹170</span> (+35 Pts)<br>
-            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹215</span> (+80 Pts)<br>
-            • <b>Institutional Setup:</b> Heavy Call writing at {n_atm_ce} strike. Above {nifty_spot + 45:,.0f}, short-covering will trigger 120-point fast momentum.
-            </div>
-            </div>
-            """)
-            st.markdown(nce_html, unsafe_allow_html=True)
-
-            npe_html = clean_html(f"""
-            <div class="option-box-pe">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <b style="color:#ef4444; font-size:1.2rem;">🔴 NIFTY {n_atm_pe} PUT (PE) BREAKDOWN</b>
-            <span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">BEARISH REVERSAL</span>
-            </div>
-            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
-            • <b>Spot Trigger Level:</b> Below <b>₹{nifty_spot - 50:,.0f}</b> (Sustained Breakdown)<br>
-            • <b>Option Premium Entry:</b> Buy between <b>₹115 - ₹125</b><br>
-            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹88</span> (Risk: 32 Pts / ₹800 per lot)<br>
-            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹160</span> (+40 Pts)<br>
-            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹205</span> (+85 Pts)<br>
-            • <b>Institutional Setup:</b> Put unwinding detected below key swing low. 20 EMA breakdown will accelerate panic selling towards major support.
-            </div>
-            </div>
-            """)
-            st.markdown(npe_html, unsafe_allow_html=True)
-
-        # BANK NIFTY OPTIONS BREAKOUT
-        with opt_col2:
-            bn_card = clean_html(f"""
-            <div style="background:#111726; border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h4 style="margin:0; color:#ffffff;">🏦 BANK NIFTY F&O RADAR</h4>
-            <span style="color:#38bdf8; font-weight:800; font-size:1.1rem;">Spot: ₹{bn_spot:,.2f}</span>
-            </div>
-            <small style="color:#94a3b8;">Weekly Expiry Contract | PCR: <b>0.84 (High Volatility)</b></small>
-            </div>
-            """)
-            st.markdown(bn_card, unsafe_allow_html=True)
-
-            bnce_html = clean_html(f"""
-            <div class="option-box-ce">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <b style="color:#10b981; font-size:1.2rem;">🟢 BANK NIFTY {bn_atm_ce} CALL (CE)</b>
-            <span style="background:#10b98125; color:#10b981; border:1px solid #10b981; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">LONG EXPANSION</span>
-            </div>
-            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
-            • <b>Spot Trigger Level:</b> Above <b>₹{bn_spot + 120:,.0f}</b> (High Volume Breakout)<br>
-            • <b>Option Premium Entry:</b> Buy between <b>₹280 - ₹310</b><br>
-            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹220</span> (Risk: 75 Pts / ₹1,125 per lot)<br>
-            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹395</span> (+100 Pts)<br>
-            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹490</span> (+195 Pts)<br>
-            • <b>Institutional Setup:</b> Banking sector consolidation breakout. Fast 250-point gamma blast on spot cross.
-            </div>
-            </div>
-            """)
-            st.markdown(bnce_html, unsafe_allow_html=True)
-
-            bnpe_html = clean_html(f"""
-            <div class="option-box-pe">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <b style="color:#ef4444; font-size:1.2rem;">🔴 BANK NIFTY {bn_atm_pe} PUT (PE)</b>
-            <span style="background:#ef444425; color:#ef4444; border:1px solid #ef4444; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.8rem;">SHORT BREAKDOWN</span>
-            </div>
-            <div style="margin-top:8px; font-size:0.92rem; color:#f8fafc; line-height:1.6;">
-            • <b>Spot Trigger Level:</b> Below <b>₹{bn_spot - 140:,.0f}</b> (Chandelier Stop Breakdown)<br>
-            • <b>Option Premium Entry:</b> Buy between <b>₹260 - ₹290</b><br>
-            • <b>Strict Stop-Loss (SL):</b> <span style="color:#ef4444; font-weight:800;">₹205</span> (Risk: 70 Pts / ₹1,050 per lot)<br>
-            • <b>Target 1 (Book 60%):</b> <span style="color:#10b981; font-weight:800;">₹370</span> (+95 Pts)<br>
-            • <b>Target 2 (Runner):</b> <span style="color:#10b981; font-weight:800;">₹460</span> (+185 Pts)<br>
-            • <b>Institutional Setup:</b> Heavy Call writing cap overhead. Sustaining below {bn_spot - 140:,.0f} opens quick slide.
-            </div>
-            </div>
-            """)
-            st.markdown(bnpe_html, unsafe_allow_html=True)
-
-        guide_html = clean_html("""
-        <div style="background:#0b0f19; border:1px solid #1e293b; border-radius:8px; padding:10px 14px; font-size:0.88rem; color:#94a3b8;">
-        <b style="color:#38bdf8;">📌 Pro Options Execution Rules:</b><br>
-        1. <b>Candle Confirmation:</b> Spot index level ke cross hone par 15-minute candle closing ka wait karein.<br>
-        2. <b>Stop-Loss Discipline:</b> Premium SL hit hote hi exit karein, average na karein.<br>
-        3. <b>Target 1 Profit Booking:</b> Target 1 aate hi 60% quantity book karke baki ka stop-loss entry price par trail karein.
-        </div>
-        """)
-        st.markdown(guide_html, unsafe_allow_html=True)
-
-# ==================== TAB 4: LIVE IPO RADAR ====================
-with tab_ipo:
-    st.markdown("### 🚀 Live Indian IPO Radar & Tracker (NSE & BSE)")
-    st.caption("Live Dates, GMP, Subscription Demand, Fundamentals aur Institutional Recommendation:")
-
-    ipo_t1, ipo_t2, ipo_t3 = st.tabs([
-        "🟢 Current IPOs (Bidding Open)",
-        "🟡 Upcoming IPOs (Announced)",
-        "🔴 Closed & Recently Listed"
-    ])
-
-    with ipo_t1:
-        st.write("#### 🟢 Active IPOs Open for Bidding:")
-        current_ipos = [
-            {
-                "name": "NTPC Green Energy Ltd", "sym": "NTPCGREEN", "exch": "NSE / BSE",
-                "open_dt": "19 Nov 2026", "close_dt": "22 Nov 2026", "list_dt": "27 Nov 2026",
-                "price": "₹102 - ₹108", "lot": "138 Shares (₹14,904)", "issue": "₹10,000 Cr (100% Fresh)",
-                "pe": "42.5x", "mcap": "₹18,150 Cr", "gmp": "₹14 (12.96% Est. Gain)",
-                "sub_total": "2.42x", "sub_qib": "3.10x", "sub_nii": "2.85x", "sub_ret": "1.32x",
-                "verdict": "🟢 APPLY (Long-Term Green Capex)", "badge": "badge-apply",
-                "why": "PSU backing, mammoth 26GW renewable target, strong balance sheet with high institutional anchor interest."
-            },
-            {
-                "name": "Zinka Logistics Solutions (BlackBuck)", "sym": "ZINKA", "exch": "NSE / BSE",
-                "open_dt": "13 Nov 2026", "close_dt": "18 Nov 2026", "list_dt": "21 Nov 2026",
-                "price": "₹259 - ₹273", "lot": "54 Shares (₹14,742)", "issue": "₹1,114 Cr",
-                "pe": "Loss Making / High P/S", "mcap": "₹4,818 Cr", "gmp": "₹0 (0.0% Flat)",
-                "sub_total": "0.32x", "sub_qib": "0.26x", "sub_nii": "0.14x", "sub_ret": "0.90x",
-                "verdict": "🔴 AVOID / RISKY (Negative Earnings)", "badge": "badge-avoid",
-                "why": "Unprofitable track record, weak GMP demand, and intense competition in digital freight trucking."
-            }
-        ]
-
-        for ip in current_ipos:
-            ipo_c_html = clean_html(f"""
-            <div class="ipo-box">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div><b style="font-size:1.25rem; color:#ffffff;">{ip["name"]}</b>
-            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{ip["sym"]} | {ip["exch"]}</span></div>
-            <span class="{ip["badge"]}">{ip["verdict"]}</span>
-            </div>
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
-            <div><span style="color:#94a3b8;">📅 Bidding Dates:</span><br><b>{ip["open_dt"]} to {ip["close_dt"]}</b></div>
-            <div><span style="color:#94a3b8;">💰 Price Band:</span><br><b style="color:#38bdf8;">{ip["price"]}</b></div>
-            <div><span style="color:#94a3b8;">📦 Lot Size:</span><br><b>{ip["lot"]}</b></div>
-            <div><span style="color:#94a3b8;">🚀 Live GMP (Est.):</span><br><b style="color:#10b981;">{ip["gmp"]}</b></div>
-            </div>
-            <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1; line-height:1.5;">
-            • <b>Subscription Status:</b> Total: <b>{ip["sub_total"]}</b> (QIB: {ip["sub_qib"]}, NII: {ip["sub_nii"]}, Retail: {ip["sub_ret"]})<br>
-            • <b>Issue Size & Valuation:</b> {ip["issue"]} | P/E: {ip["pe"]} | Mcap: {ip["mcap"]}<br>
-            • <b>Recommendation Analysis:</b> {ip["why"]}
-            </div>
-            </div>
-            """)
-            st.markdown(ipo_c_html, unsafe_allow_html=True)
-            if st.button(f"➕ Add {ip['sym']} to Watchlist", key=f"btn_add_curr_ipo_{ip['sym']}", use_container_width=True):
-                if not any(w["symbol"] == ip["sym"] for w in st.session_state.my_watchlist):
-                    st.session_state.my_watchlist.append({"symbol": ip["sym"], "name": ip["name"], "exchange": "NSE", "yf": f"{ip['sym']}.NS", "price": 108.0})
-                    st.success(f"{ip['sym']} added!")
-                    st.rerun()
-
-    with ipo_t2:
-        st.write("#### 🟡 Forthcoming IPOs in Pipeline (SEBI / DRHP Approved):")
-        upcoming_ipos = [
-            {
-                "name": "Hero Fincorp Limited", "sym": "HEROFIN", "exch": "NSE / BSE",
-                "open_dt": "Dec 2026 (Expected)", "close_dt": "TBA", "list_dt": "TBA",
-                "price": "₹850 - ₹890 (Est.)", "lot": "16 Shares", "issue": "₹3,668 Cr (Fresh ₹2,100 Cr + OFS)",
-                "pe": "24.8x", "mcap": "₹14,500 Cr", "gmp": "₹65 (+7.5% Premium)",
-                "sub_total": "Yet to Open", "verdict": "🟡 APPLY WITH CAUTION", "badge": "badge-caution",
-                "why": "Strong Hero MotoCorp brand equity; retail NBFC portfolio showing steady 18% ROE growth."
-            },
-            {
-                "name": "Aadhar Housing Finance Ltd", "sym": "AADHARHFC", "exch": "NSE / BSE",
-                "open_dt": "Late 2026", "close_dt": "TBA", "list_dt": "TBA",
-                "price": "₹300 - ₹315", "lot": "47 Shares", "issue": "₹3,000 Cr",
-                "pe": "18.2x", "mcap": "₹12,800 Cr", "gmp": "₹28 (+8.8% Premium)",
-                "sub_total": "Awaiting Dates", "verdict": "🟡 MONITOR", "badge": "badge-caution",
-                "why": "Affordable housing finance segment tailwind backed by Blackstone sponsorship."
-            }
-        ]
-
-        for u_ip in upcoming_ipos:
-            ipo_u_html = clean_html(f"""
-            <div class="ipo-box">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div><b style="font-size:1.25rem; color:#ffffff;">{u_ip["name"]}</b>
-            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{u_ip["sym"]} | {u_ip["exch"]}</span></div>
-            <span class="{u_ip["badge"]}">{u_ip["verdict"]}</span>
-            </div>
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; font-size:0.9rem; background:#0b0f19; padding:10px; border-radius:6px;">
-            <div><span style="color:#94a3b8;">📅 Expected Date:</span><br><b>{u_ip["open_dt"]}</b></div>
-            <div><span style="color:#94a3b8;">💰 Est. Price:</span><br><b style="color:#38bdf8;">{u_ip["price"]}</b></div>
-            <div><span style="color:#94a3b8;">📦 Expected Issue:</span><br><b>{u_ip["issue"]}</b></div>
-            <div><span style="color:#94a3b8;">🚀 Grey Market GMP:</span><br><b style="color:#f59e0b;">{u_ip["gmp"]}</b></div>
-            </div>
-            <div style="margin-top:8px; font-size:0.88rem; color:#cbd5e1;">
-            • <b>Expected Valuation:</b> P/E: {u_ip["pe"]} | Mcap: {u_ip["mcap"]}<br>
-            • <b>Key Triggers:</b> {u_ip["why"]}
-            </div>
-            </div>
-            """)
-            st.markdown(ipo_u_html, unsafe_allow_html=True)
-
-    with ipo_t3:
-        st.write("#### 🔴 Recently Closed & Listed IPOs (Live Trading Performance):")
-        closed_ipos = [
-            {
-                "name": "Vikram Solar Ltd", "sym": "VIKRAMSOLR", "exch": "BSE / NSE",
-                "list_dt": "Aug 26, 2025", "issue_p": "₹332.00", "cmp": "₹435.00",
-                "gain": "+31.02%", "issue_sz": "₹2,079.37 Cr", "sub": "56.42x",
-                "status": "Listed & Outperforming", "desc": "Clean energy solar module expansion delivering robust revenue compounding."
-            },
-            {
-                "name": "Swiggy Limited", "sym": "SWIGGY", "exch": "NSE / BSE",
-                "list_dt": "Nov 13, 2026", "issue_p": "₹390.00", "cmp": "₹485.00",
-                "gain": "+24.35%", "issue_sz": "₹11,327 Cr", "sub": "3.59x",
-                "status": "Listed & Accumulating", "desc": "Quick commerce Instamart dark stores showing rapid profitability ramp-up."
-            },
-            {
-                "name": "Jio Platforms Limited", "sym": "JPL", "exch": "NSE",
-                "list_dt": "Oct 2026", "issue_p": "₹1,424.60", "cmp": "₹1,412.70",
-                "gain": "-0.84%", "issue_sz": "Mega Institutional Listing", "sub": "18.2x",
-                "status": "Consolidating near Listing Base", "desc": "Consolidating around ₹1,410 trailing stop support before next momentum leg."
-            },
-            {
-                "name": "Hyundai Motor India", "sym": "HYUNDAI", "exch": "NSE / BSE",
-                "list_dt": "Oct 22, 2024", "issue_p": "₹1,960.00", "cmp": "₹1,780.00",
-                "gain": "-9.18%", "issue_sz": "₹27,870 Cr", "sub": "2.37x",
-                "status": "Base Building", "desc": "100% OFS issue digesting promoter dilution; finding steady support near ₹1,740."
-            },
-            {
-                "name": "BLS E-Services Ltd", "sym": "BLSE", "exch": "NSE",
-                "list_dt": "Feb 2024", "issue_p": "₹135.00", "cmp": "₹242.00",
-                "gain": "+79.25%", "issue_sz": "₹310 Cr", "sub": "162.4x",
-                "status": "Multi-Bagger Winner", "desc": "E-governance and banking correspondent network delivering huge earnings growth."
-            }
-        ]
-
-        for c_ip in closed_ipos:
-            gain_col = "#10b981" if "+" in c_ip['gain'] else "#ef4444"
-            ipo_cl_html = clean_html(f"""
-            <div class="ipo-box" style="border-left: 4px solid {gain_col};">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div><b style="font-size:1.2rem; color:#ffffff;">{c_ip["name"]}</b>
-            <span style="background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px; font-size:0.8rem; margin-left:8px; font-weight:700;">{c_ip["sym"]} | {c_ip["exch"]}</span></div>
-            <span style="color:{gain_col}; font-weight:900; font-size:1.1rem;">Listing Return: {c_ip["gain"]}</span>
-            </div>
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:8px; font-size:0.9rem; background:#0b0f19; padding:8px 12px; border-radius:6px;">
-            <div><span style="color:#94a3b8;">📅 Listing Date:</span><br><b>{c_ip["list_dt"]}</b></div>
-            <div><span style="color:#94a3b8;">🏷️ Issue Price:</span><br><b>{c_ip["issue_p"]}</b></div>
-            <div><span style="color:#94a3b8;">⚡ Current Price:</span><br><b style="color:#ffffff;">{c_ip["cmp"]}</b></div>
-            <div><span style="color:#94a3b8;">📈 Subscription:</span><br><b style="color:#38bdf8;">{c_ip["sub"]}</b></div>
-            </div>
-            <div style="margin-top:6px; font-size:0.88rem; color:#cbd5e1;">
-            • <b>Issue Size:</b> {c_ip["issue_sz"]} | <b>Market Status:</b> {c_ip["status"]}<br>
-            • <b>Post-Listing Trajectory:</b> {c_ip["desc"]}
-            </div>
-            </div>
-            """)
-            st.markdown(ipo_cl_html, unsafe_allow_html=True)
-            if st.button(f"📈 Open {c_ip['sym']} Chart & Chandelier Exit", key=f"btn_open_closed_ipo_{c_ip['sym']}", use_container_width=True):
-                open_stock_terminal(c_ip["sym"], c_ip["name"], c_ip["exch"].split("/")[0].strip(), f"{c_ip['sym']}.NS", float(c_ip["cmp"].replace("₹","").replace(",","")))
+            {"sym": "ZEEL", "name": "Zee Entertainment Enterprises", "price": 118.00, "entry": "Below ₹116.00", "sl": "₹122.00", "tgt": "₹106.00", "setup": "Consolidation Floor Breakdown", "score
