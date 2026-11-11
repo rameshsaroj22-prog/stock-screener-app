@@ -757,7 +757,7 @@ if search_query.strip():
 
 # ----------------- MAIN NAVIGATION TABS -----------------
 tab_terminal, tab_watchlist, tab_radar, tab_ipo = st.tabs([
-    "📈 Kotak Neo One-Page Terminal",
+    "📈 Live Chart & Strategy Terminal",
     "📋 Manual Watchlist & Live Screener",
     "🎯 Next-Day Radar & F&O Breakouts",
     "🚀 Live IPO Radar (Dates, GMP & Analysis)"
