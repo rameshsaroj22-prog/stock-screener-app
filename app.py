@@ -255,7 +255,6 @@ div[data-testid="stTextInput"] label {
     font-size: 0.95rem;
 }
 
-/* PREDICTIVE SIGNAL RADAR BANNER */
 .predictive-box {
     border-radius: 8px;
     padding: 10px 16px;
@@ -795,10 +794,8 @@ with tab_terminal:
         label_visibility="collapsed"
     )
 
-    # ----------------- LIVE CHART & PREDICTIVE RADAR FRAGMENT (AUTO 5S REFRESH) -----------------
     @st.fragment(run_every=5)
     def render_live_moving_terminal(active_sym, active_name, active_exch, active_yf, known_price, selected_timeframe):
-        # 1. Fetch Real-Time LTP
         tv_quote = fetch_tradingview_live_quote(active_sym, active_exch)
         if tv_quote:
             live_price = tv_quote["price"]
@@ -817,7 +814,6 @@ with tab_terminal:
         pill_class = "change-green" if is_up else "change-red"
         sign = "+" if is_up else ""
 
-        # 2. History Base Data (Cached per Scrip/Timeframe)
         cache_chart_key = f"df_{active_sym}_{selected_timeframe}"
         if cache_chart_key not in st.session_state:
             df_fetched = pd.DataFrame()
@@ -847,13 +843,11 @@ with tab_terminal:
 
             st.session_state[cache_chart_key] = df_fetched
 
-        # 3. Dynamically Move the Latest Candle with Real-Time LTP
         df_data = st.session_state[cache_chart_key].copy()
         df_data.loc[df_data.index[-1], 'Close'] = live_price
         df_data.loc[df_data.index[-1], 'High'] = max(df_data.loc[df_data.index[-1], 'High'], live_price)
         df_data.loc[df_data.index[-1], 'Low'] = min(df_data.loc[df_data.index[-1], 'Low'], live_price)
 
-        # 4. Calculate Indicators
         df_data = calculate_chandelier_exit(df_data, length=7, mult=2.0, use_close=True)
 
         ltp = float(df_data['Close'].iloc[-1])
@@ -862,14 +856,12 @@ with tab_terminal:
         atr_val = float(df_data['ATR'].iloc[-1])
         ema20_val = float(df_data['EMA_20'].iloc[-1])
 
-        # Previous Candle Direction (To Predict Forming Candle Signal)
         prev_dir = int(df_data['Chandelier_Dir'].iloc[-2]) if len(df_data) >= 2 else current_dir
         prev_short_stop = float(df_data['Chandelier_Short'].iloc[-2]) if len(df_data) >= 2 else chan_stop
         prev_long_stop = float(df_data['Chandelier_Long'].iloc[-2]) if len(df_data) >= 2 else chan_stop
 
-        # 5. PREDICTIVE SIGNAL DETECTOR (BEFORE CANDLE CLOSES)
+        # PREDICTIVE SIGNAL DETECTOR (BEFORE CANDLE CLOSES)
         if prev_dir == -1:
-            # Running under Bearish trend: Check if forming candle crosses short stop
             if ltp >= prev_short_stop:
                 pred_badge = "⚡ EARLY BUY TRIGGERED (Forming Candle Breaking Out!)"
                 pred_css = "predictive-buy"
@@ -881,7 +873,6 @@ with tab_terminal:
                 pred_css = "predictive-hold"
                 pred_msg = f"Agla BUY Trigger Level: <b>₹{prev_short_stop:,.2f}</b> (Early signal aane me sirf <b>{diff_pts:,.2f} pts / {diff_pct:.2f}%</b> baki hai)."
         else:
-            # Running under Bullish trend: Check if forming candle drops below long stop
             if ltp <= prev_long_stop:
                 pred_badge = "⚡ EARLY SELL / EXIT TRIGGERED (Forming Candle Breakdown!)"
                 pred_css = "predictive-sell"
@@ -921,7 +912,6 @@ with tab_terminal:
         if known_listing:
             listing_note = f"<span style='color:#38bdf8; font-size:0.8rem; margin-left:10px;'>• Listed: {known_listing.strftime('%d %b %Y')}</span>"
 
-        # 6. Render Terminal Header
         header_html = clean_html(f"""
         <div class="neo-card">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -937,7 +927,6 @@ with tab_terminal:
         """)
         st.markdown(header_html, unsafe_allow_html=True)
 
-        # 7. Render Predictive Signal Banner
         predictive_html = clean_html(f"""
         <div class="predictive-box {pred_css}">
         <div>
@@ -1069,16 +1058,42 @@ with tab_terminal:
         m4.metric("20-Day EMA", f"₹{ema20_val:,.2f}")
         m5.metric("Target 1 (1.5x Risk)", f"₹{target_1:,.2f}")
 
-    # Invoke live moving fragment
     render_live_moving_terminal(active_sym, active_name, active_exch, active_yf, known_price, selected_timeframe)
 
-# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
+# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER (WITH EARLY BREAKOUT COLUMN) ====================
 with tab_watchlist:
     st.markdown("### 📋 Advanced Multi-Stock Watchlist & Screener")
+
+    # Fast Evaluator for Early Breakout Trigger Status
+    @st.cache_data(ttl=20)
+    def evaluate_stock_breakout_status(sym, exch, live_p):
+        try:
+            df = generate_pro_candles_by_period(live_p, "1D", sym)
+            df.loc[df.index[-1], 'Close'] = live_p
+            df = calculate_chandelier_exit(df, length=7, mult=2.0)
+            
+            c = float(df['Close'].iloc[-1])
+            prev_dir = int(df['Chandelier_Dir'].iloc[-2]) if len(df) >= 2 else int(df['Chandelier_Dir'].iloc[-1])
+            prev_short = float(df['Chandelier_Short'].iloc[-2]) if len(df) >= 2 else float(df['Chandelier_Stop'].iloc[-1])
+            prev_long = float(df['Chandelier_Long'].iloc[-2]) if len(df) >= 2 else float(df['Chandelier_Stop'].iloc[-1])
+            current_dir = int(df['Chandelier_Dir'].iloc[-1])
+            
+            # Check if running forming candle has crossed the short trigger
+            if prev_dir == -1 and c >= prev_short:
+                return "⚡ EARLY BUY TRIGGERED (Forming Candle Breaking Out!)", "🟢 BUY", round(prev_long, 2), round(c * 1.035, 2)
+            elif current_dir == 1:
+                return "🟢 BULLISH MOMENTUM", "🟢 BUY", round(prev_long, 2), round(c * 1.035, 2)
+            elif prev_short - c <= (0.012 * c):
+                return "⏳ NEAR BREAKOUT WATCH", "🟡 WATCH", round(c * 0.97, 2), round(prev_short, 2)
+            else:
+                return "🔴 BEARISH / EXIT", "🔴 SELL", round(prev_short, 2), round(c * 0.965, 2)
+        except Exception:
+            return "🟡 HOLD", "🟡 HOLD", round(live_p * 0.965, 2), round(live_p * 1.035, 2)
 
     w_rows = []
     bullish_count = 0
     bearish_count = 0
+    early_buy_count = 0
 
     for item in st.session_state.my_watchlist:
         s_sym = item["symbol"]
@@ -1090,15 +1105,16 @@ with tab_watchlist:
         c_price = tv_w["price"] if tv_w else s_price
         c_pct = tv_w["change_pct"] if tv_w else "0.0%"
 
-        if c_price >= 400:
-            sig = "🟢 BUY (LONG)"
+        # Evaluate Early Breakout Alert
+        early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(s_sym, s_exch, c_price)
+
+        if "EARLY BUY TRIGGERED" in early_status:
+            early_buy_count += 1
+            bullish_count += 1
+        elif "BULLISH" in early_status:
             bullish_count += 1
         else:
-            sig = "🟡 HOLD"
             bearish_count += 1
-
-        sl_calc = round(c_price * 0.965, 2)
-        tgt_calc = round(c_price * 1.035, 2)
 
         w_rows.append({
             "Symbol": s_sym,
@@ -1106,15 +1122,20 @@ with tab_watchlist:
             "Company Name": s_name,
             "Live Price": f"₹{c_price:,.2f}",
             "1-Day Change": c_pct,
+            "Early Breakout Alert": early_status,
             "Chandelier Signal": sig,
             "Trailing Stop (SL)": f"₹{sl_calc:,.2f}",
             "Target 1": f"₹{tgt_calc:,.2f}"
         })
 
-    s1, s2, s3 = st.columns(3)
+    s1, s2, s3, s4 = st.columns(4)
     s1.metric("Tracked Scrips", f"{len(st.session_state.my_watchlist)} Stocks")
-    s2.metric("Bullish Breakouts", f"{bullish_count} Scrips")
-    s3.metric("Consolidating / Hold", f"{bearish_count} Scrips")
+    s2.metric("⚡ Early Breakouts", f"{early_buy_count} Scrips")
+    s3.metric("🟢 Bullish Active", f"{bullish_count} Scrips")
+    s4.metric("🔴 Bearish / Hold", f"{bearish_count} Scrips")
+
+    if early_buy_count > 0:
+        st.success(f"⚡ **Live Alert:** {early_buy_count} Stock(s) currently triggering **EARLY BUY (Forming Candle Breaking Out!)** status. Check table below!")
 
     if w_rows:
         st.dataframe(pd.DataFrame(w_rows), use_container_width=True, hide_index=True)
@@ -1151,6 +1172,7 @@ with tab_radar:
         "⚡ Nifty & Bank Nifty Options (CE / PE Breakouts)"
     ])
 
+    # 1. 20 BEST BUY STOCKS
     with radar_sub1:
         hdr_b = clean_html("""
         <div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1202,6 +1224,7 @@ with tab_radar:
                 if st.button(f"📈 Analyze {s['sym']}", key=f"r_b_{s['sym']}_{i}", use_container_width=True):
                     open_stock_terminal(s["sym"], s["name"], "NSE", f"{s['sym']}.NS", s["price"])
 
+    # 2. 20 BEST SELL STOCKS
     with radar_sub2:
         hdr_s = clean_html("""
         <div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1253,6 +1276,7 @@ with tab_radar:
                 if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
                     open_stock_terminal(stk["sym"], stk["name"], "NSE", f"{stk['sym']}.NS", stk["price"])
 
+    # 3. FII HEAVY ACCUMULATION (SMART MONEY RADAR)
     with radar_sub3:
         fii_hdr = clean_html("""
         <div style="background:#101625; border:1.5px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
@@ -1345,6 +1369,7 @@ with tab_radar:
                 if st.button(f"📈 Analyze FII Stock: {f_stk['sym']}", key=f"btn_fii_{f_stk['sym']}_{k}", use_container_width=True):
                     open_stock_terminal(f_stk["sym"], f_stk["name"], "NSE", f"{f_stk['sym']}.NS", f_stk["price"])
 
+    # 4. NIFTY & BANK NIFTY F&O (CE / PE) BREAKOUTS
     with radar_sub4:
         opt_hdr = clean_html("""
         <div style="background:#131c2e; border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
