@@ -8,11 +8,13 @@ from bs4 import BeautifulSoup
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import datetime
+import json
+import os
 import re
 
 # ----------------- PAGE CONFIG -----------------
 st.set_page_config(
-    page_title="Pro Screener | Kotak Neo Terminal & Sector Radar",
+    page_title="Pro Screener | Live Predictive Terminal & Momentum 30",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -337,7 +339,6 @@ div[data-testid="stTextInput"] label {
     margin-bottom: 12px;
 }
 
-/* SECTOR BOX STYLING */
 .sector-box {
     background: #111726;
     border: 1px solid #1e293b;
@@ -378,7 +379,10 @@ STOCK_LISTING_REGISTRY = {
     "ZOMATO": datetime.date(2021, 7, 23)
 }
 
-# ----------------- SESSION STATE WATCHLIST -----------------
+# ----------------- SHARED CROSS-DEVICE WATCHLIST STORAGE -----------------
+WATCHLIST_FILE = "shared_watchlist.json"
+MOMENTUM30_FILE = "momentum30_watchlist.json"
+
 DEFAULT_WATCHLIST = [
     {"symbol": "JPL", "name": "Jio Platforms Limited", "exchange": "NSE", "yf": "JPL.NS", "price": 1412.70},
     {"symbol": "BLS", "name": "BLS International Services Ltd", "exchange": "NSE", "yf": "BLS.NS", "price": 372.50},
@@ -390,8 +394,75 @@ DEFAULT_WATCHLIST = [
     {"symbol": "ICICIBANK", "name": "ICICI Bank Ltd", "exchange": "NSE", "yf": "ICICIBANK.NS", "price": 1424.10}
 ]
 
+# ----------------- 30 BEST MOMENTUM STOCKS (FROM UPLOADED SHEET) -----------------
+DEFAULT_MOMENTUM_30 = [
+    {"symbol": "ABB", "name": "ABB India Ltd.", "industry": "Capital Goods", "isin": "INE117A01022", "exchange": "NSE", "yf": "ABB.NS", "price": 6934.50},
+    {"symbol": "ADANIENSOL", "name": "Adani Energy Solutions Ltd.", "industry": "Power", "isin": "INE931S01010", "exchange": "NSE", "yf": "ADANIENSOL.NS", "price": 1491.80},
+    {"symbol": "ADANIGREEN", "name": "Adani Green Energy Ltd.", "industry": "Power", "isin": "INE364U01010", "exchange": "NSE", "yf": "ADANIGREEN.NS", "price": 1435.00},
+    {"symbol": "ADANIPOWER", "name": "Adani Power Ltd.", "industry": "Power", "isin": "INE814H01029", "exchange": "NSE", "yf": "ADANIPOWER.NS", "price": 211.95},
+    {"symbol": "ABCAPITAL", "name": "Aditya Birla Capital Ltd.", "industry": "Financial Services", "isin": "INE674K01013", "exchange": "NSE", "yf": "ABCAPITAL.NS", "price": 423.00},
+    {"symbol": "BSE", "name": "BSE Ltd.", "industry": "Financial Services", "isin": "INE118H01025", "exchange": "NSE", "yf": "BSE.NS", "price": 3781.00},
+    {"symbol": "BHARATFORG", "name": "Bharat Forge Ltd.", "industry": "Automobile and Auto Components", "isin": "INE465A01025", "exchange": "NSE", "yf": "BHARATFORG.NS", "price": 1750.00},
+    {"symbol": "BHEL", "name": "Bharat Heavy Electricals Ltd.", "industry": "Capital Goods", "isin": "INE257A01026", "exchange": "NSE", "yf": "BHEL.NS", "price": 433.65},
+    {"symbol": "CGPOWER", "name": "CG Power and Industrial Solutions Ltd.", "industry": "Capital Goods", "isin": "INE067A01029", "exchange": "NSE", "yf": "CGPOWER.NS", "price": 792.00},
+    {"symbol": "CUMMINSIND", "name": "Cummins India Ltd.", "industry": "Capital Goods", "isin": "INE298A01020", "exchange": "NSE", "yf": "CUMMINSIND.NS", "price": 4100.00},
+    {"symbol": "FEDERALBNK", "name": "Federal Bank Ltd.", "industry": "Financial Services", "isin": "INE171A01029", "exchange": "NSE", "yf": "FEDERALBNK.NS", "price": 373.50},
+    {"symbol": "GVT&D", "name": "GE Vernova T&D India Ltd.", "industry": "Capital Goods", "isin": "INE200A01026", "exchange": "NSE", "yf": "GVT&D.NS", "price": 4235.00},
+    {"symbol": "GLENMARK", "name": "Glenmark Pharmaceuticals Ltd.", "industry": "Healthcare", "isin": "INE935A01035", "exchange": "NSE", "yf": "GLENMARK.NS", "price": 2648.00},
+    {"symbol": "HINDALCO", "name": "Hindalco Industries Ltd.", "industry": "Metals & Mining", "isin": "INE038A01020", "exchange": "NSE", "yf": "HINDALCO.NS", "price": 929.50},
+    {"symbol": "POWERINDIA", "name": "Hitachi Energy India Ltd.", "industry": "Capital Goods", "isin": "INE07Y701011", "exchange": "NSE", "yf": "POWERINDIA.NS", "price": 30150.00},
+    {"symbol": "KEI", "name": "KEI Industries Ltd.", "industry": "Capital Goods", "isin": "INE878B01027", "exchange": "NSE", "yf": "KEI.NS", "price": 3828.10},
+    {"symbol": "LTF", "name": "L&T Finance Ltd.", "industry": "Financial Services", "isin": "INE498L01015", "exchange": "NSE", "yf": "LTF.NS", "price": 272.10},
+    {"symbol": "LAURUSLABS", "name": "Laurus Labs Ltd.", "industry": "Healthcare", "isin": "INE947Q01028", "exchange": "NSE", "yf": "LAURUSLABS.NS", "price": 2294.60},
+    {"symbol": "MCX", "name": "Multi Commodity Exchange of India Ltd.", "industry": "Financial Services", "isin": "INE745G01043", "exchange": "NSE", "yf": "MCX.NS", "price": 3535.00},
+    {"symbol": "NTPC", "name": "NTPC Ltd.", "industry": "Power", "isin": "INE733E01010", "exchange": "NSE", "yf": "NTPC.NS", "price": 321.50},
+    {"symbol": "NATIONALUM", "name": "National Aluminium Co. Ltd.", "industry": "Metals & Mining", "isin": "INE139A01034", "exchange": "NSE", "yf": "NATIONALUM.NS", "price": 303.20},
+    {"symbol": "POLYCAB", "name": "Polycab India Ltd.", "industry": "Capital Goods", "isin": "INE455K01017", "exchange": "NSE", "yf": "POLYCAB.NS", "price": 7570.00},
+    {"symbol": "MOTHERSON", "name": "Samvardhana Motherson International Ltd.", "industry": "Automobile and Auto Components", "isin": "INE775A01035", "exchange": "NSE", "yf": "MOTHERSON.NS", "price": 166.53},
+    {"symbol": "SHRIRAMFIN", "name": "Shriram Finance Ltd.", "industry": "Financial Services", "isin": "INE721A01047", "exchange": "NSE", "yf": "SHRIRAMFIN.NS", "price": 972.00},
+    {"symbol": "SOLARINDS", "name": "Solar Industries India Ltd.", "industry": "Chemicals", "isin": "INE343H01029", "exchange": "NSE", "yf": "SOLARINDS.NS", "price": 18710.00},
+    {"symbol": "SAIL", "name": "Steel Authority of India Ltd.", "industry": "Metals & Mining", "isin": "INE114A01011", "exchange": "NSE", "yf": "SAIL.NS", "price": 164.11},
+    {"symbol": "TATASTEEL", "name": "Tata Steel Ltd.", "industry": "Metals & Mining", "isin": "INE081A01020", "exchange": "NSE", "yf": "TATASTEEL.NS", "price": 178.00},
+    {"symbol": "TORNTPHARM", "name": "Torrent Pharmaceuticals Ltd.", "industry": "Healthcare", "isin": "INE685A01028", "exchange": "NSE", "yf": "TORNTPHARM.NS", "price": 4689.50},
+    {"symbol": "VEDL", "name": "Vedanta Ltd.", "industry": "Metals & Mining", "isin": "INE205A01025", "exchange": "NSE", "yf": "VEDL.NS", "price": 238.04},
+    {"symbol": "IDEA", "name": "Vodafone Idea Ltd.", "industry": "Telecommunication", "isin": "INE669E01016", "exchange": "NSE", "yf": "IDEA.NS", "price": 12.15}
+]
+
+def load_json_list(filepath, fallback_list):
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "r") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception:
+            pass
+    return fallback_list
+
+def save_json_list(filepath, data_list):
+    try:
+        with open(filepath, "w") as f:
+            json.dump(data_list, f)
+    except Exception:
+        pass
+
+def load_shared_watchlist():
+    return load_json_list(WATCHLIST_FILE, DEFAULT_WATCHLIST)
+
+def save_shared_watchlist(watchlist_data):
+    save_json_list(WATCHLIST_FILE, watchlist_data)
+
+def load_momentum30_watchlist():
+    return load_json_list(MOMENTUM30_FILE, DEFAULT_MOMENTUM_30)
+
+def save_momentum30_watchlist(m30_data):
+    save_json_list(MOMENTUM30_FILE, m30_data)
+
 if "my_watchlist" not in st.session_state:
-    st.session_state.my_watchlist = DEFAULT_WATCHLIST
+    st.session_state.my_watchlist = load_shared_watchlist()
+
+if "momentum30_watchlist" not in st.session_state:
+    st.session_state.momentum30_watchlist = load_momentum30_watchlist()
 
 if "active_scrip" not in st.session_state:
     st.session_state.active_scrip = st.session_state.my_watchlist[0]
@@ -469,7 +540,7 @@ def search_tradingview_and_nse(query):
 
     return unique_matches[:6]
 
-# ----------------- TRADINGVIEW SCANNER REAL-TIME QUOTE -----------------
+# ----------------- TRADINGVIEW SCANNER REAL-TIME QUOTE (SINGLE & BATCH) -----------------
 def fetch_tradingview_live_quote(symbol, exchange="NSE"):
     clean_sym = symbol.replace(".NS", "").replace(".BO", "").strip().upper()
     url = "https://scanner.tradingview.com/india/scan"
@@ -519,6 +590,51 @@ def fetch_tradingview_live_quote(symbol, exchange="NSE"):
         pass
 
     return None
+
+@st.cache_data(ttl=15)
+def fetch_tradingview_batch_quotes(symbols_tuple):
+    """Fetches real-time quotes for up to 50 stocks in a single fast API request."""
+    out = {}
+    if not symbols_tuple:
+        return out
+    tickers = []
+    for sym in symbols_tuple:
+        clean_s = sym.replace(".NS", "").replace(".BO", "").strip().upper()
+        tickers.append(f"NSE:{clean_s}")
+        tickers.append(f"BSE:{clean_s}")
+
+    url = "https://scanner.tradingview.com/india/scan"
+    payload = {
+        "symbols": {"tickers": tickers},
+        "columns": ["close", "change", "change_abs", "description", "prev_close"]
+    }
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        r = requests.post(url, json=payload, headers=headers, timeout=4)
+        if r.status_code == 200:
+            rows = r.json().get("data", [])
+            for row in rows:
+                s_full = row.get("s", "")
+                sym_only = s_full.split(":")[-1].upper() if ":" in s_full else s_full.upper()
+                if sym_only in out and s_full.startswith("BSE:"):
+                    continue
+                d = row.get("d", [])
+                if len(d) >= 3 and d[0] is not None:
+                    ltp = float(d[0])
+                    pct = float(d[1]) if d[1] is not None else 0.0
+                    chg_abs = float(d[2]) if d[2] is not None else 0.0
+                    desc = d[3] if len(d) > 3 and d[3] else f"{sym_only} Ltd"
+                    prev = d[4] if len(d) > 4 and d[4] is not None else ltp - chg_abs
+                    out[sym_only] = {
+                        "name": desc,
+                        "price": ltp,
+                        "change_pct": f"{pct:+.2f}%",
+                        "chg_pts": chg_abs,
+                        "prev_close": prev
+                    }
+    except Exception:
+        pass
+    return out
 
 # ----------------- DYNAMIC CANDLE GENERATOR -----------------
 def generate_pro_candles_by_period(base_price, period_choice, symbol=None):
@@ -716,7 +832,7 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown(
     '<div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">'
-    '● Sector Baskets & Live Moving Terminal Online'
+    '● Nifty 200 Momentum 30 + Cloud Watchlists Online'
     '</div>',
     unsafe_allow_html=True
 )
@@ -729,7 +845,7 @@ with search_c1:
     search_query = st.text_input(
         "Search Box Input",
         value="",
-        placeholder="Type any stock name or symbol (e.g. JPL, Vikram Solar, BLS, Orient Cable, TCS)..."
+        placeholder="Type any stock name or symbol (e.g. ABB, Polycab, BSE, JPL, Vikram Solar, BLS)..."
     )
 
 with search_c2:
@@ -764,15 +880,18 @@ if search_query.strip():
             with c_add:
                 st.markdown('<div class="add-btn">', unsafe_allow_html=True)
                 if st.button(f"➕ Watchlist", key=f"btn_add_{sym}_{idx}", use_container_width=True):
-                    if not any(w["symbol"] == sym for w in st.session_state.my_watchlist):
-                        st.session_state.my_watchlist.append({
+                    current_list = load_shared_watchlist()
+                    if not any(w["symbol"] == sym for w in current_list):
+                        current_list.append({
                             "symbol": sym,
                             "name": name,
                             "exchange": exch,
                             "yf": item["yf"],
                             "price": live_p
                         })
-                        st.success(f"{sym} added to Watchlist!")
+                        save_shared_watchlist(current_list)
+                        st.session_state.my_watchlist = current_list
+                        st.success(f"{sym} added & synced across all devices!")
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
     else:
@@ -781,7 +900,7 @@ if search_query.strip():
 # ----------------- MAIN NAVIGATION TABS -----------------
 tab_terminal, tab_watchlist, tab_sectors, tab_radar, tab_ipo = st.tabs([
     "📈 Pro Trading Terminal",
-    "📋 Manual Watchlist & Live Screener",
+    "📋 Watchlists & Live Screeners",
     "🏢 Sector-wise Stocks Radar",
     "🎯 Next-Day Radar & F&O Breakouts",
     "🚀 Live IPO Radar (Dates, GMP & Analysis)"
@@ -1070,10 +1189,8 @@ with tab_terminal:
 
     render_live_moving_terminal(active_sym, active_name, active_exch, active_yf, known_price, selected_timeframe)
 
-# ==================== TAB 2: MANUAL WATCHLIST & LIVE SCREENER ====================
+# ==================== TAB 2: WATCHLISTS (PERSONAL + NIFTY 200 MOMENTUM 30) ====================
 with tab_watchlist:
-    st.markdown("### 📋 Advanced Multi-Stock Watchlist & Screener")
-
     @st.cache_data(ttl=20)
     def evaluate_stock_breakout_status(sym, exch, live_p):
         try:
@@ -1098,76 +1215,251 @@ with tab_watchlist:
         except Exception:
             return "🟡 HOLD", "🟡 HOLD", round(live_p * 0.965, 2), round(live_p * 1.035, 2)
 
-    w_rows = []
-    bullish_count = 0
-    bearish_count = 0
-    early_buy_count = 0
+    wl_sub1, wl_sub2 = st.tabs([
+        "🔥 Nifty 200 Momentum 30 (30 Best Stocks Watchlist)",
+        "📌 My Personal Cloud Watchlist"
+    ])
 
-    for item in st.session_state.my_watchlist:
-        s_sym = item["symbol"]
-        s_name = item["name"]
-        s_exch = item.get("exchange", "NSE")
-        s_price = item.get("price", 100.0)
+    # -------------------- SUB-TAB 1: NIFTY 200 MOMENTUM 30 WATCHLIST --------------------
+    with wl_sub1:
+        m30_hdr = clean_html("""
+        <div style="background:#101a2b; border:1.5px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:12px;">
+        <b style="color:#38bdf8; font-size:1.15rem;">🔥 NIFTY 200 MOMENTUM 30 — DEDICATED 30-STOCK WATCHLIST & SCREENER</b><br>
+        <small style="color:#cbd5e1;">Aapki Excel/CSV sheet ke sabhi 30 high-momentum stocks ka live price, Chandelier (7, 2.0) signal, aur Early Breakout status.</small>
+        </div>
+        """)
+        st.markdown(m30_hdr, unsafe_allow_html=True)
 
-        tv_w = fetch_tradingview_live_quote(s_sym, s_exch)
-        c_price = tv_w["price"] if tv_w else s_price
-        c_pct = tv_w["change_pct"] if tv_w else "0.0%"
+        m30_list = load_momentum30_watchlist()
+        st.session_state.momentum30_watchlist = m30_list
 
-        early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(s_sym, s_exch, c_price)
+        # Industry Filter + Cloud Refresh
+        f_col1, f_col2 = st.columns([7.5, 2.5])
+        all_industries = ["All Industries"] + sorted(list({x.get("industry", "Other") for x in m30_list}))
+        with f_col1:
+            selected_ind = st.selectbox("Filter by Industry / Sector:", all_industries, key="m30_ind_filter")
+        with f_col2:
+            st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+            if st.button("🔄 Refresh 30 Live Prices", key="btn_refresh_m30", use_container_width=True):
+                st.cache_data.clear()
+                st.rerun()
 
-        if "EARLY BUY TRIGGERED" in early_status:
-            early_buy_count += 1
-            bullish_count += 1
-        elif "BULLISH" in early_status:
-            bullish_count += 1
-        else:
-            bearish_count += 1
+        filtered_m30 = m30_list if selected_ind == "All Industries" else [x for x in m30_list if x.get("industry") == selected_ind]
 
-        w_rows.append({
-            "Symbol": s_sym,
-            "Exchange": s_exch,
-            "Company Name": s_name,
-            "Live Price": f"₹{c_price:,.2f}",
-            "1-Day Change": c_pct,
-            "Early Breakout Alert": early_status,
-            "Chandelier Signal": sig,
-            "Trailing Stop (SL)": f"₹{sl_calc:,.2f}",
-            "Target 1": f"₹{tgt_calc:,.2f}"
-        })
+        # Batch fetch live quotes for all 30 stocks in 1 single API call
+        symbols_tuple = tuple(x["symbol"] for x in filtered_m30)
+        batch_quotes = fetch_tradingview_batch_quotes(symbols_tuple)
 
-    s1, s2, s3, s4 = st.columns(4)
-    s1.metric("Tracked Scrips", f"{len(st.session_state.my_watchlist)} Stocks")
-    s2.metric("⚡ Early Breakouts", f"{early_buy_count} Scrips")
-    s3.metric("🟢 Bullish Active", f"{bullish_count} Scrips")
-    s4.metric("🔴 Bearish / Hold", f"{bearish_count} Scrips")
+        m30_rows = []
+        m30_bull = 0
+        m30_bear = 0
+        m30_early = 0
 
-    if early_buy_count > 0:
-        st.success(f"⚡ **Live Alert:** {early_buy_count} Stock(s) currently triggering **EARLY BUY (Forming Candle Breaking Out!)** status. Check table below!")
+        for idx_m, item in enumerate(filtered_m30, start=1):
+            sym = item["symbol"]
+            name = item["name"]
+            ind = item.get("industry", "Equity")
+            fallback_p = item.get("price", 100.0)
 
-    if w_rows:
-        st.dataframe(pd.DataFrame(w_rows), use_container_width=True, hide_index=True)
+            q = batch_quotes.get(sym.upper())
+            c_price = q["price"] if q else fallback_p
+            c_pct = q["change_pct"] if q else "0.0%"
 
-    st.markdown("#### ⚡ Quick Actions on Watchlist:")
-    act1, act2 = st.columns(2)
+            early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(sym, "NSE", c_price)
 
-    symbols_list = [w["symbol"] for w in st.session_state.my_watchlist]
-    with act1:
-        st.write("**📈 Open Stock in One-Page Terminal:**")
-        target_view = st.selectbox("Select Scrip to View:", symbols_list, key="sel_view_box")
-        if st.button("Open in Terminal", use_container_width=True):
-            chosen = next((x for x in st.session_state.my_watchlist if x["symbol"] == target_view), None)
-            if chosen:
-                open_stock_terminal(chosen["symbol"], chosen["name"], chosen.get("exchange", "NSE"), chosen.get("yf"), chosen["price"])
+            if "EARLY BUY TRIGGERED" in early_status:
+                m30_early += 1
+                m30_bull += 1
+            elif "BULLISH" in early_status:
+                m30_bull += 1
+            else:
+                m30_bear += 1
 
-    with act2:
-        st.write("**❌ Remove Stock from Watchlist:**")
-        target_delete = st.selectbox("Select Scrip to Remove:", symbols_list, key="sel_del_box")
-        if st.button("Delete from Watchlist", use_container_width=True):
-            st.session_state.my_watchlist = [x for x in st.session_state.my_watchlist if x["symbol"] != target_delete]
-            st.success(f"Removed {target_delete} from Watchlist!")
-            st.rerun()
+            m30_rows.append({
+                "#": idx_m,
+                "Symbol": sym,
+                "Company Name": name,
+                "Industry": ind,
+                "Live Price": f"₹{c_price:,.2f}",
+                "1-Day Change": c_pct,
+                "Early Breakout Alert": early_status,
+                "Chandelier Signal": sig,
+                "Trailing Stop (SL)": f"₹{sl_calc:,.2f}",
+                "Target 1": f"₹{tgt_calc:,.2f}"
+            })
 
-# ==================== TAB 3: SECTOR-WISE STOCKS RADAR (NEW POWERFUL MODULE) ====================
+        ms1, ms2, ms3, ms4 = st.columns(4)
+        ms1.metric("Momentum 30 Scrips", f"{len(filtered_m30)} Stocks")
+        ms2.metric("⚡ Early Breakouts", f"{m30_early} Scrips")
+        ms3.metric("🟢 Bullish Active", f"{m30_bull} Scrips")
+        ms4.metric("🔴 Bearish / Hold", f"{m30_bear} Scrips")
+
+        if m30_early > 0:
+            st.success(f"⚡ **Momentum 30 Alert:** {m30_early} Stock(s) me abhi **EARLY BUY TRIGGERED** breakout ban raha hai!")
+
+        if m30_rows:
+            st.dataframe(pd.DataFrame(m30_rows), use_container_width=True, hide_index=True, height=520)
+
+        st.markdown("#### ⚡ Quick Actions on Momentum 30 Watchlist:")
+        m_act1, m_act2 = st.columns(2)
+        m30_syms = [x["symbol"] for x in filtered_m30]
+
+        with m_act1:
+            st.write("**📈 Open Momentum Stock in Pro Trading Terminal:**")
+            m30_view = st.selectbox("Select Momentum 30 Scrip:", m30_syms, key="sel_m30_view")
+            if st.button("📈 Open in Terminal", key="btn_m30_open", use_container_width=True):
+                chosen = next((x for x in m30_list if x["symbol"] == m30_view), None)
+                if chosen:
+                    q_live = batch_quotes.get(chosen["symbol"].upper())
+                    p_open = q_live["price"] if q_live else chosen["price"]
+                    open_stock_terminal(chosen["symbol"], chosen["name"], "NSE", chosen.get("yf", f"{chosen['symbol']}.NS"), p_open)
+
+        with m_act2:
+            st.write("**➕ Copy Scrip to My Personal Cloud Watchlist:**")
+            m30_copy = st.selectbox("Select Scrip to Copy:", m30_syms, key="sel_m30_copy")
+            if st.button("➕ Add to Personal Watchlist", key="btn_m30_copy", use_container_width=True):
+                chosen = next((x for x in m30_list if x["symbol"] == m30_copy), None)
+                if chosen:
+                    personal_list = load_shared_watchlist()
+                    if not any(w["symbol"] == chosen["symbol"] for w in personal_list):
+                        q_live = batch_quotes.get(chosen["symbol"].upper())
+                        p_save = q_live["price"] if q_live else chosen["price"]
+                        personal_list.append({
+                            "symbol": chosen["symbol"],
+                            "name": chosen["name"],
+                            "exchange": "NSE",
+                            "yf": chosen.get("yf", f"{chosen['symbol']}.NS"),
+                            "price": p_save
+                        })
+                        save_shared_watchlist(personal_list)
+                        st.session_state.my_watchlist = personal_list
+                        st.success(f"{chosen['symbol']} added to Personal Watchlist!")
+                    else:
+                        st.info(f"{chosen['symbol']} pehle se Personal Watchlist me hai.")
+
+        # Optional Uploader for future Excel/CSV lists
+        with st.expander("📂 Upload Updated Excel (.xlsx) or CSV File to Update Momentum 30 List"):
+            uploaded_sheet = st.file_uploader("Upload NSE / Custom Stock List (.csv or .xlsx)", type=["csv", "xlsx"], key="m30_uploader")
+            if uploaded_sheet is not None:
+                try:
+                    if uploaded_sheet.name.endswith(".csv"):
+                        up_df = pd.read_csv(uploaded_sheet)
+                    else:
+                        up_df = pd.read_excel(uploaded_sheet)
+                    
+                    if "Symbol" in up_df.columns:
+                        new_m30 = []
+                        for _, r in up_df.dropna(subset=["Symbol"]).iterrows():
+                            s_val = str(r["Symbol"]).strip().upper()
+                            c_val = str(r["Company Name"]).strip() if "Company Name" in up_df.columns else f"{s_val} Ltd."
+                            i_val = str(r["Industry"]).strip() if "Industry" in up_df.columns else "Equity"
+                            new_m30.append({
+                                "symbol": s_val,
+                                "name": c_val,
+                                "industry": i_val,
+                                "exchange": "NSE",
+                                "yf": f"{s_val}.NS",
+                                "price": 100.0
+                            })
+                        if new_m30:
+                            save_momentum30_watchlist(new_m30)
+                            st.session_state.momentum30_watchlist = new_m30
+                            st.success(f"✅ {len(new_m30)} stocks successfully loaded & synced!")
+                            st.rerun()
+                    else:
+                        st.error("Sheet me 'Symbol' column hona zaroori hai.")
+                except Exception as e:
+                    st.error(f"File read karne me error aaya: {e}")
+
+    # -------------------- SUB-TAB 2: MY PERSONAL CLOUD WATCHLIST --------------------
+    with wl_sub2:
+        st.markdown("### 📌 My Personal Cloud-Synced Watchlist")
+
+        sync_c1, sync_c2 = st.columns([8.2, 1.8])
+        with sync_c2:
+            if st.button("🔄 Sync with Cloud", use_container_width=True):
+                st.session_state.my_watchlist = load_shared_watchlist()
+                st.toast("Watchlist synced across devices!", icon="🔄")
+                st.rerun()
+
+        active_watchlist = load_shared_watchlist()
+        st.session_state.my_watchlist = active_watchlist
+
+        p_symbols_tuple = tuple(x["symbol"] for x in active_watchlist)
+        p_batch_quotes = fetch_tradingview_batch_quotes(p_symbols_tuple)
+
+        w_rows = []
+        bullish_count = 0
+        bearish_count = 0
+        early_buy_count = 0
+
+        for item in st.session_state.my_watchlist:
+            s_sym = item["symbol"]
+            s_name = item["name"]
+            s_exch = item.get("exchange", "NSE")
+            s_price = item.get("price", 100.0)
+
+            tv_w = p_batch_quotes.get(s_sym.upper())
+            c_price = tv_w["price"] if tv_w else s_price
+            c_pct = tv_w["change_pct"] if tv_w else "0.0%"
+
+            early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(s_sym, s_exch, c_price)
+
+            if "EARLY BUY TRIGGERED" in early_status:
+                early_buy_count += 1
+                bullish_count += 1
+            elif "BULLISH" in early_status:
+                bullish_count += 1
+            else:
+                bearish_count += 1
+
+            w_rows.append({
+                "Symbol": s_sym,
+                "Exchange": s_exch,
+                "Company Name": s_name,
+                "Live Price": f"₹{c_price:,.2f}",
+                "1-Day Change": c_pct,
+                "Early Breakout Alert": early_status,
+                "Chandelier Signal": sig,
+                "Trailing Stop (SL)": f"₹{sl_calc:,.2f}",
+                "Target 1": f"₹{tgt_calc:,.2f}"
+            })
+
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Tracked Scrips", f"{len(st.session_state.my_watchlist)} Stocks")
+        s2.metric("⚡ Early Breakouts", f"{early_buy_count} Scrips")
+        s3.metric("🟢 Bullish Active", f"{bullish_count} Scrips")
+        s4.metric("🔴 Bearish / Hold", f"{bearish_count} Scrips")
+
+        if early_buy_count > 0:
+            st.success(f"⚡ **Live Alert:** {early_buy_count} Stock(s) currently triggering **EARLY BUY (Forming Candle Breaking Out!)** status.")
+
+        if w_rows:
+            st.dataframe(pd.DataFrame(w_rows), use_container_width=True, hide_index=True)
+
+        st.markdown("#### ⚡ Quick Actions on Personal Watchlist:")
+        act1, act2 = st.columns(2)
+
+        symbols_list = [w["symbol"] for w in st.session_state.my_watchlist]
+        with act1:
+            st.write("**📈 Open Stock in Pro Trading Terminal:**")
+            target_view = st.selectbox("Select Scrip to View:", symbols_list, key="sel_view_box")
+            if st.button("Open in Terminal", use_container_width=True):
+                chosen = next((x for x in st.session_state.my_watchlist if x["symbol"] == target_view), None)
+                if chosen:
+                    open_stock_terminal(chosen["symbol"], chosen["name"], chosen.get("exchange", "NSE"), chosen.get("yf"), chosen["price"])
+
+        with act2:
+            st.write("**❌ Remove Stock from Watchlist:**")
+            target_delete = st.selectbox("Select Scrip to Remove:", symbols_list, key="sel_del_box")
+            if st.button("Delete from Watchlist", use_container_width=True):
+                updated_list = [x for x in st.session_state.my_watchlist if x["symbol"] != target_delete]
+                save_shared_watchlist(updated_list)
+                st.session_state.my_watchlist = updated_list
+                st.success(f"Removed {target_delete} and synced across devices!")
+                st.rerun()
+
+# ==================== TAB 3: SECTOR-WISE STOCKS RADAR ====================
 with tab_sectors:
     st.markdown("### 🏢 Indian Industry & Sector-Wise Stocks Radar")
     st.caption("Sector ke aadhar par institutional stocks scan karein, trend dekhein aur 1-click me Terminal me open karein:")
@@ -1179,8 +1471,8 @@ with tab_sectors:
             {"sym": "SBIN", "name": "State Bank of India", "price": 842.00, "mcap": "Large Cap", "desc": "PSU banking giant commanding extensive retail network."},
             {"sym": "KOTAKBANK", "name": "Kotak Mahindra Bank", "price": 1740.00, "mcap": "Large Cap", "desc": "High CASA ratio, premium retail banking brand."},
             {"sym": "AXISBANK", "name": "Axis Bank Ltd", "price": 1135.00, "mcap": "Large Cap", "desc": "Strong digital banking and corporate recovery momentum."},
-            {"sym": "INDUSINDBK", "name": "IndusInd Bank Ltd", "price": 1025.00, "mcap": "Large Cap", "desc": "Commercial vehicle financing & microfinance presence."},
-            {"sym": "BANDHANBNK", "name": "Bandhan Bank Ltd", "price": 168.00, "mcap": "Mid Cap", "desc": "East India micro-credit & rural penetration franchise."}
+            {"sym": "SHRIRAMFIN", "name": "Shriram Finance Ltd", "price": 972.00, "mcap": "Large Cap", "desc": "Leading retail NBFC & commercial vehicle financier."},
+            {"sym": "FEDERALBNK", "name": "Federal Bank Ltd", "price": 373.50, "mcap": "Mid Cap", "desc": "High-growth private sector bank with strong digital adoption."}
         ],
         "💻 Information Technology (IT)": [
             {"sym": "TCS", "name": "Tata Consultancy Services Ltd", "price": 4145.00, "mcap": "Mega Cap", "desc": "Global IT services leader with massive BFSI deal pipeline."},
@@ -1192,24 +1484,28 @@ with tab_sectors:
         "🚗 Automobile & EV": [
             {"sym": "TATAMOTORS", "name": "Tata Motors Ltd", "price": 935.00, "mcap": "Mega Cap", "desc": "India EV market leader & JLR global luxury SUV recovery."},
             {"sym": "MARUTI", "name": "Maruti Suzuki India", "price": 11150.00, "mcap": "Mega Cap", "desc": "Passenger car market dominator with hybrid/CNG expansion."},
-            {"sym": "HYUNDAI", "name": "Hyundai Motor India", "price": 1780.00, "mcap": "Mega Cap", "desc": "Premium SUV specialist and export manufacturing hub."},
-            {"sym": "M&M", "name": "Mahindra & Mahindra Ltd", "price": 2980.00, "mcap": "Large Cap", "desc": "Tractor kingpin and Thar/XUV flagship SUV leader."}
+            {"sym": "BHARATFORG", "name": "Bharat Forge Ltd", "price": 1750.00, "mcap": "Large Cap", "desc": "Auto components, EV forgings & defence engineering giant."},
+            {"sym": "MOTHERSON", "name": "Samvardhana Motherson International", "price": 166.53, "mcap": "Large Cap", "desc": "Global wiring harness & EV automotive component supplier."}
         ],
-        "⚡ Energy, Power & Solar": [
-            {"sym": "RELIANCE", "name": "Reliance Industries Ltd", "price": 2748.00, "mcap": "Mega Cap", "desc": "Oil-to-Chemicals giant entering Giga-scale green hydrogen & solar."},
-            {"sym": "COALINDIA", "name": "Coal India Limited", "price": 408.00, "mcap": "Large Cap", "desc": "World's largest coal producer offering high dividend yields."},
-            {"sym": "NTPCGREEN", "name": "NTPC Green Energy Ltd", "price": 118.00, "mcap": "Large Cap", "desc": "Government flagship PSU for 60GW green renewable capacity."},
+        "⚡ Energy, Power & Capital Goods": [
+            {"sym": "ABB", "name": "ABB India Ltd", "price": 6934.50, "mcap": "Large Cap", "desc": "Industrial automation, robotics & electrification leader."},
+            {"sym": "POWERINDIA", "name": "Hitachi Energy India Ltd", "price": 30150.00, "mcap": "Large Cap", "desc": "High-voltage power grid & HVDC transmission leader."},
+            {"sym": "POLYCAB", "name": "Polycab India Ltd", "price": 7570.00, "mcap": "Large Cap", "desc": "India's largest wires, cables & FMEG manufacturer."},
+            {"sym": "NTPC", "name": "NTPC Ltd", "price": 321.50, "mcap": "Mega Cap", "desc": "India's largest power utility & renewable energy transition."},
+            {"sym": "ADANIPOWER", "name": "Adani Power Ltd", "price": 211.95, "mcap": "Mega Cap", "desc": "India's largest private thermal power producer."},
             {"sym": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "price": 435.00, "mcap": "Mid Cap", "desc": "Solar PV module manufacturing and EPC solar installations."}
         ],
         "💊 Healthcare & Pharmaceuticals": [
             {"sym": "SUNPHARMA", "name": "Sun Pharmaceutical Industries", "price": 1820.00, "mcap": "Mega Cap", "desc": "Global specialty dermatology and chronic therapy leader."},
-            {"sym": "DIVISLAB", "name": "Divi's Laboratories Ltd", "price": 5650.00, "mcap": "Large Cap", "desc": "High-margin Active Pharmaceutical Ingredients (API) exporter."}
+            {"sym": "TORNTPHARM", "name": "Torrent Pharmaceuticals Ltd", "price": 4689.50, "mcap": "Large Cap", "desc": "Branded chronic therapies & cardiac/neurology leader."},
+            {"sym": "GLENMARK", "name": "Glenmark Pharmaceuticals Ltd", "price": 2648.00, "mcap": "Large Cap", "desc": "Respiratory, dermatology & oncology innovation pharma."},
+            {"sym": "LAURUSLABS", "name": "Laurus Labs Ltd", "price": 2294.60, "mcap": "Mid Cap", "desc": "CDMO, APIs & biologics high-growth pharma manufacturer."}
         ],
-        "🛒 FMCG, Consumer & Logistics": [
-            {"sym": "ITC", "name": "ITC Ltd", "price": 482.00, "mcap": "Mega Cap", "desc": "Cigarettes, packaged foods, paperboards and hotels conglomerate."},
-            {"sym": "SWIGGY", "name": "Swiggy Ltd", "price": 485.00, "mcap": "Large Cap", "desc": "Instamart quick commerce and on-demand food delivery leader."},
-            {"sym": "ZOMATO", "name": "Zomato Ltd", "price": 264.00, "mcap": "Large Cap", "desc": "Blinkit quick-commerce high growth margin expansion company."},
-            {"sym": "ORIENTCABL", "name": "Orient Cables (India) Ltd", "price": 185.00, "mcap": "Small Cap", "desc": "Industrial cables and infrastructure electrical wires."}
+        "🏗️ Metals, Mining & Chemicals": [
+            {"sym": "HINDALCO", "name": "Hindalco Industries Ltd", "price": 929.50, "mcap": "Mega Cap", "desc": "Global aluminium & copper flagship of Aditya Birla Group."},
+            {"sym": "TATASTEEL", "name": "Tata Steel Ltd", "price": 178.00, "mcap": "Mega Cap", "desc": "Integrated steel producer with strong domestic demand."},
+            {"sym": "VEDL", "name": "Vedanta Ltd", "price": 238.04, "mcap": "Large Cap", "desc": "Diversified natural resources, zinc, aluminium & oil/gas."},
+            {"sym": "SOLARINDS", "name": "Solar Industries India Ltd", "price": 18710.00, "mcap": "Large Cap", "desc": "Industrial explosives & defence ammunition manufacturer."}
         ]
     }
 
@@ -1225,12 +1521,11 @@ with tab_sectors:
             """)
             st.markdown(sec_header, unsafe_allow_html=True)
 
+            sec_batch = fetch_tradingview_batch_quotes(tuple(x["sym"] for x in sec_stocks))
             sec_cols = st.columns(2)
             for s_idx, stk in enumerate(sec_stocks):
                 target_col = sec_cols[s_idx % 2]
-                
-                # Fetch live price
-                q = fetch_tradingview_live_quote(stk["sym"])
+                q = sec_batch.get(stk["sym"].upper())
                 live_p = q["price"] if q else stk["price"]
                 chg_str = q["change_pct"] if q else "0.0%"
                 p_col = "#10b981" if "+" in chg_str else "#ef4444"
@@ -1263,15 +1558,18 @@ with tab_sectors:
                     with btn_c2:
                         st.markdown('<div class="add-btn">', unsafe_allow_html=True)
                         if st.button(f"➕ Watchlist", key=f"sec_add_{stk['sym']}_{sec_idx}_{s_idx}", use_container_width=True):
-                            if not any(w["symbol"] == stk["sym"] for w in st.session_state.my_watchlist):
-                                st.session_state.my_watchlist.append({
+                            current_list = load_shared_watchlist()
+                            if not any(w["symbol"] == stk["sym"] for w in current_list):
+                                current_list.append({
                                     "symbol": stk["sym"],
                                     "name": stk["name"],
                                     "exchange": "NSE",
                                     "yf": f"{stk['sym']}.NS",
                                     "price": live_p
                                 })
-                                st.success(f"{stk['sym']} added to Watchlist!")
+                                save_shared_watchlist(current_list)
+                                st.session_state.my_watchlist = current_list
+                                st.success(f"{stk['sym']} added & synced!")
                                 st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1287,7 +1585,6 @@ with tab_radar:
         "⚡ Nifty & Bank Nifty Options (CE / PE Breakouts)"
     ])
 
-    # 1. 20 BEST BUY STOCKS
     with radar_sub1:
         hdr_b = clean_html("""
         <div style="background:#0e1e1a; border:1px solid #10b981; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1298,26 +1595,26 @@ with tab_radar:
         st.markdown(hdr_b, unsafe_allow_html=True)
 
         top_20_buys = [
-            {"sym": "BLS", "name": "BLS International Services Ltd", "price": 372.50, "entry": "₹375.00", "sl": "₹359.00", "tgt": "₹398.00", "setup": "Multi-Week Range Breakout + 2x Vol", "score": "94%"},
-            {"sym": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "price": 435.00, "entry": "₹438.00", "sl": "₹421.00", "tgt": "₹465.00", "setup": "Clean Consolidation Breakout Above EMA", "score": "92%"},
-            {"sym": "COALINDIA", "name": "Coal India Limited", "price": 408.00, "entry": "₹410.50", "sl": "₹398.00", "tgt": "₹428.00", "setup": "Chandelier Trailing Support Bounce", "score": "91%"},
-            {"sym": "ICICIBANK", "name": "ICICI Bank Ltd", "price": 1424.10, "entry": "₹1,428.00", "sl": "₹1,402.00", "tgt": "₹1,465.00", "setup": "Banking Sector Leadership Reversal", "score": "90%"},
-            {"sym": "BHARTIARTL", "name": "Bharti Airtel Ltd", "price": 1620.00, "entry": "₹1,625.00", "sl": "₹1,585.00", "tgt": "₹1,690.00", "setup": "All-Time High Momentum Continuation", "score": "90%"},
-            {"sym": "TCS", "name": "Tata Consultancy Services Ltd", "price": 4145.00, "entry": "₹4,160.00", "sl": "₹4,080.00", "tgt": "₹4,280.00", "setup": "IT Heavyweight Cup & Handle Breakout", "score": "89%"},
-            {"sym": "SBIN", "name": "State Bank of India", "price": 842.00, "entry": "₹846.00", "sl": "₹828.00", "tgt": "₹875.00", "setup": "PSU Bank Inflow Surge + Bull Flag", "score": "88%"},
-            {"sym": "LT", "name": "Larsen & Toubro Ltd", "price": 3610.00, "entry": "₹3,625.00", "sl": "₹3,540.00", "tgt": "₹3,750.00", "setup": "Infra Capex Surge + 20 EMA Pullback", "score": "88%"},
-            {"sym": "RELIANCE", "name": "Reliance Industries Ltd", "price": 2748.00, "entry": "₹2,758.00", "sl": "₹2,710.00", "tgt": "₹2,830.00", "setup": "Double Bottom Bounce at Support", "score": "87%"},
-            {"sym": "TATAMOTORS", "name": "Tata Motors Ltd", "price": 935.00, "entry": "₹940.00", "sl": "₹918.00", "tgt": "₹975.00", "setup": "EV Volume Expansion + MACD Crossover", "score": "87%"},
-            {"sym": "ITC", "name": "ITC Ltd", "price": 482.00, "entry": "₹484.50", "sl": "₹474.00", "tgt": "₹502.00", "setup": "Defensive FMCG Breakout on 1.8x Vol", "score": "86%"},
-            {"sym": "SUNPHARMA", "name": "Sun Pharmaceutical Industries", "price": 1820.00, "entry": "₹1,828.00", "sl": "₹1,785.00", "tgt": "₹1,895.00", "setup": "Pharma Outperformer Highs Extension", "score": "86%"},
-            {"sym": "HINDALCO", "name": "Hindalco Industries Ltd", "price": 685.00, "entry": "₹690.00", "sl": "₹668.00", "tgt": "₹725.00", "setup": "Base Metals Rally Continuation", "score": "85%"},
-            {"sym": "INFY", "name": "Infosys Ltd", "price": 1860.00, "entry": "₹1,868.00", "sl": "₹1,825.00", "tgt": "₹1,935.00", "setup": "Fresh Trendline Piercing on Daily", "score": "85%"},
-            {"sym": "NTPCGREEN", "name": "NTPC Green Energy Ltd", "price": 118.00, "entry": "₹120.00", "sl": "₹112.00", "tgt": "₹132.00", "setup": "Green Energy Inflow + Institutional Buy", "score": "85%"},
-            {"sym": "BLSE", "name": "BLS E-Services Ltd", "price": 242.00, "entry": "₹245.00", "sl": "₹234.00", "tgt": "₹264.00", "setup": "Symmetrical Triangle Breakout", "score": "84%"},
-            {"sym": "ZOMATO", "name": "Zomato Ltd", "price": 264.00, "entry": "₹267.00", "sl": "₹255.00", "tgt": "₹285.00", "setup": "Quick-Commerce Margin Expansion Run", "score": "84%"},
-            {"sym": "SWIGGY", "name": "Swiggy Ltd", "price": 485.00, "entry": "₹490.00", "sl": "₹468.00", "tgt": "₹525.00", "setup": "Post-Listing Volume Squeeze & Expansion", "score": "83%"},
-            {"sym": "BEL", "name": "Bharat Electronics Ltd", "price": 302.00, "entry": "₹305.00", "sl": "₹294.00", "tgt": "₹324.00", "setup": "Defence Orderflow Breakout", "score": "83%"},
-            {"sym": "POWERGRID", "name": "Power Grid Corporation", "price": 328.00, "entry": "₹331.00", "sl": "₹321.00", "tgt": "₹348.00", "setup": "Low-Beta Trend Steady Continuation", "score": "82%"}
+            {"sym": "FEDERALBNK", "name": "Federal Bank Ltd", "price": 373.50, "entry": "₹375.00", "sl": "₹361.00", "tgt": "₹398.00", "setup": "Momentum 30 Leader + 2.47% Volume Breakout", "score": "95%"},
+            {"sym": "HINDALCO", "name": "Hindalco Industries Ltd", "price": 929.50, "entry": "₹932.00", "sl": "₹898.00", "tgt": "₹985.00", "setup": "Metals Breakout + Strong Quarterly Profit Jump", "score": "94%"},
+            {"sym": "TORNTPHARM", "name": "Torrent Pharmaceuticals Ltd", "price": 4689.50, "entry": "₹4,705.00", "sl": "₹4,560.00", "tgt": "₹4,920.00", "setup": "Pharma Outperformer Highs Extension", "score": "93%"},
+            {"sym": "GLENMARK", "name": "Glenmark Pharmaceuticals Ltd", "price": 2648.00, "entry": "₹2,660.00", "sl": "₹2,570.00", "tgt": "₹2,790.00", "setup": "Clean Consolidation Breakout Above 20 EMA", "score": "92%"},
+            {"sym": "ABCAPITAL", "name": "Aditya Birla Capital Ltd", "price": 423.00, "entry": "₹426.00", "sl": "₹409.00", "tgt": "₹452.00", "setup": "Financial Services Momentum Continuation", "score": "91%"},
+            {"sym": "ADANIENSOL", "name": "Adani Energy Solutions Ltd", "price": 1491.80, "entry": "₹1,500.00", "sl": "₹1,425.00", "tgt": "₹1,600.00", "setup": "Multi-Month Resistance Breakout + High Vol", "score": "91%"},
+            {"sym": "BHARATFORG", "name": "Bharat Forge Ltd", "price": 1750.00, "entry": "₹1,760.00", "sl": "₹1,695.00", "tgt": "₹1,860.00", "setup": "Auto & Defence Forgings Trend Continuation", "score": "90%"},
+            {"sym": "POWERINDIA", "name": "Hitachi Energy India Ltd", "price": 30150.00, "entry": "₹30,300.00", "sl": "₹29,200.00", "tgt": "₹32,000.00", "setup": "Capital Goods High-Velocity Momentum Run", "score": "90%"},
+            {"sym": "BLS", "name": "BLS International Services Ltd", "price": 372.50, "entry": "₹375.00", "sl": "₹359.00", "tgt": "₹398.00", "setup": "Multi-Week Range Breakout + 2x Vol", "score": "89%"},
+            {"sym": "VIKRAMSOLR", "name": "Vikram Solar Ltd", "price": 435.00, "entry": "₹438.00", "sl": "₹421.00", "tgt": "₹465.00", "setup": "Clean Consolidation Breakout Above EMA", "score": "89%"},
+            {"sym": "BSE", "name": "BSE Ltd", "price": 3781.00, "entry": "₹3,800.00", "sl": "₹3,670.00", "tgt": "₹3,990.00", "setup": "Exchange Volume Expansion + Bull Flag", "score": "88%"},
+            {"sym": "POLYCAB", "name": "Polycab India Ltd", "price": 7570.00, "entry": "₹7,610.00", "sl": "₹7,380.00", "tgt": "₹7,950.00", "setup": "Cables & Wires Sector Leader Breakout", "score": "88%"},
+            {"sym": "ICICIBANK", "name": "ICICI Bank Ltd", "price": 1424.10, "entry": "₹1,428.00", "sl": "₹1,402.00", "tgt": "₹1,465.00", "setup": "Banking Sector Leadership Reversal", "score": "87%"},
+            {"sym": "BHARTIARTL", "name": "Bharti Airtel Ltd", "price": 1620.00, "entry": "₹1,625.00", "sl": "₹1,585.00", "tgt": "₹1,690.00", "setup": "All-Time High Momentum Continuation", "score": "87%"},
+            {"sym": "TCS", "name": "Tata Consultancy Services Ltd", "price": 4145.00, "entry": "₹4,160.00", "sl": "₹4,080.00", "tgt": "₹4,280.00", "setup": "IT Heavyweight Cup & Handle Breakout", "score": "86%"},
+            {"sym": "ADANIPOWER", "name": "Adani Power Ltd", "price": 211.95, "entry": "₹214.00", "sl": "₹204.00", "tgt": "₹230.00", "setup": "Power Sector Earnings Surge + Support Bounce", "score": "86%"},
+            {"sym": "MOTHERSON", "name": "Samvardhana Motherson", "price": 166.53, "entry": "₹168.00", "sl": "₹160.00", "tgt": "₹180.00", "setup": "Auto Ancillary Symmetrical Breakout", "score": "85%"},
+            {"sym": "KEI", "name": "KEI Industries Ltd", "price": 3828.10, "entry": "₹3,850.00", "sl": "₹3,720.00", "tgt": "₹4,050.00", "setup": "Chandelier Trailing Support Bounce", "score": "85%"},
+            {"sym": "SWIGGY", "name": "Swiggy Ltd", "price": 485.00, "entry": "₹490.00", "sl": "₹468.00", "tgt": "₹525.00", "setup": "Post-Listing Volume Squeeze & Expansion", "score": "84%"},
+            {"sym": "BEL", "name": "Bharat Electronics Ltd", "price": 302.00, "entry": "₹305.00", "sl": "₹294.00", "tgt": "₹324.00", "setup": "Defence Orderflow Breakout", "score": "83%"}
         ]
 
         b_cols = st.columns(2)
@@ -1339,7 +1636,6 @@ with tab_radar:
                 if st.button(f"📈 Analyze {s['sym']}", key=f"r_b_{s['sym']}_{i}", use_container_width=True):
                     open_stock_terminal(s["sym"], s["name"], "NSE", f"{s['sym']}.NS", s["price"])
 
-    # 2. 20 BEST SELL STOCKS
     with radar_sub2:
         hdr_s = clean_html("""
         <div style="background:#201114; border:1px solid #ef4444; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
@@ -1351,24 +1647,24 @@ with tab_radar:
 
         top_20_sells = [
             {"sym": "JPL", "name": "Jio Platforms Limited", "price": 1412.70, "entry": "Below ₹1,410", "sl": "₹1,432.00", "tgt": "₹1,375.00", "setup": "Chandelier SL Breach (-0.84% Weak Close)", "score": "95%"},
-            {"sym": "HDFCBANK", "name": "HDFC Bank Ltd", "price": 736.70, "entry": "Below ₹733", "sl": "₹746.00", "tgt": "₹710.00", "setup": "Repeated Rejection at 20 EMA Resistance", "score": "93%"},
-            {"sym": "KOTAKBANK", "name": "Kotak Mahindra Bank", "price": 1740.00, "entry": "Below ₹1,732", "sl": "₹1,765.00", "tgt": "₹1,680.00", "setup": "Major Support Breakdown on Heavy Volume", "score": "92%"},
-            {"sym": "AXISBANK", "name": "Axis Bank Ltd", "price": 1135.00, "entry": "Below ₹1,128", "sl": "₹1,152.00", "tgt": "₹1,085.00", "setup": "Head & Shoulders Breakdown Trigger", "score": "91%"},
-            {"sym": "WIPRO", "name": "Wipro Ltd", "price": 542.00, "entry": "Below ₹538", "sl": "₹554.00", "tgt": "₹515.00", "setup": "Lower Lows Series Below 50-Day EMA", "score": "90%"},
-            {"sym": "TECHM", "name": "Tech Mahindra Ltd", "price": 1640.00, "entry": "Below ₹1,630", "sl": "₹1,668.00", "tgt": "₹1,570.00", "setup": "Bearish Engulfing Pattern on High Vol", "score": "89%"},
+            {"sym": "MCX", "name": "Multi Commodity Exchange of India", "price": 3535.00, "entry": "Below ₹3,515", "sl": "₹3,620.00", "tgt": "₹3,360.00", "setup": "Sharp -3.02% Profit Booking Breakdown", "score": "94%"},
+            {"sym": "CGPOWER", "name": "CG Power and Industrial Solutions", "price": 792.00, "entry": "Below ₹786", "sl": "₹814.00", "tgt": "₹750.00", "setup": "20 EMA Breakdown on High Volume (-2.57%)", "score": "93%"},
+            {"sym": "VEDL", "name": "Vedanta Ltd", "price": 238.04, "entry": "Below ₹236", "sl": "₹244.00", "tgt": "₹224.00", "setup": "Metals Distribution & Lower Low Breakdown", "score": "92%"},
+            {"sym": "TATASTEEL", "name": "Tata Steel Ltd", "price": 178.00, "entry": "Below ₹176.50", "sl": "₹182.50", "tgt": "₹168.00", "setup": "Support Breach Below Short-Term Moving Avg", "score": "91%"},
+            {"sym": "HDFCBANK", "name": "HDFC Bank Ltd", "price": 736.70, "entry": "Below ₹733", "sl": "₹746.00", "tgt": "₹710.00", "setup": "Repeated Rejection at 20 EMA Resistance", "score": "90%"},
+            {"sym": "KOTAKBANK", "name": "Kotak Mahindra Bank", "price": 1740.00, "entry": "Below ₹1,732", "sl": "₹1,765.00", "tgt": "₹1,680.00", "setup": "Major Support Breakdown on Heavy Volume", "score": "90%"},
+            {"sym": "AXISBANK", "name": "Axis Bank Ltd", "price": 1135.00, "entry": "Below ₹1,128", "sl": "₹1,152.00", "tgt": "₹1,085.00", "setup": "Head & Shoulders Breakdown Trigger", "score": "89%"},
+            {"sym": "WIPRO", "name": "Wipro Ltd", "price": 542.00, "entry": "Below ₹538", "sl": "₹554.00", "tgt": "₹515.00", "setup": "Lower Lows Series Below 50-Day EMA", "score": "89%"},
+            {"sym": "TECHM", "name": "Tech Mahindra Ltd", "price": 1640.00, "entry": "Below ₹1,630", "sl": "₹1,668.00", "tgt": "₹1,570.00", "setup": "Bearish Engulfing Pattern on High Vol", "score": "88%"},
             {"sym": "MARUTI", "name": "Maruti Suzuki India", "price": 11150.00, "entry": "Below ₹11,080", "sl": "₹11,300.00", "tgt": "₹10,750.00", "setup": "Automobile Inventory Squeeze Breakdown", "score": "88%"},
-            {"sym": "BAJFINANCE", "name": "Bajaj Finance Ltd", "price": 6820.00, "entry": "Below ₹6,780", "sl": "₹6,930.00", "tgt": "₹6,520.00", "setup": "NIM Margin Compression Channel Fall", "score": "88%"},
+            {"sym": "BAJFINANCE", "name": "Bajaj Finance Ltd", "price": 6820.00, "entry": "Below ₹6,780", "sl": "₹6,930.00", "tgt": "₹6,520.00", "setup": "NIM Margin Compression Channel Fall", "score": "87%"},
             {"sym": "INDUSINDBK", "name": "IndusInd Bank Ltd", "price": 1025.00, "entry": "Below ₹1,018", "sl": "₹1,048.00", "tgt": "₹970.00", "setup": "Key Fibonacci 61.8% Support Breach", "score": "87%"},
-            {"sym": "TATACONSUM", "name": "Tata Consumer Products", "price": 985.00, "entry": "Below ₹978", "sl": "₹1,005.00", "tgt": "₹935.00", "setup": "Distribution Phase Climax Breakdown", "score": "87%"},
             {"sym": "ASIANPAINT", "name": "Asian Paints Ltd", "price": 2480.00, "entry": "Below ₹2,460", "sl": "₹2,525.00", "tgt": "₹2,360.00", "setup": "Sector Price War Margin Breakdown", "score": "86%"},
             {"sym": "BERGEPAINT", "name": "Berger Paints India Ltd", "price": 482.00, "entry": "Below ₹477", "sl": "₹494.00", "tgt": "₹450.00", "setup": "Bearish Descending Triangle Breakdown", "score": "86%"},
             {"sym": "DLF", "name": "DLF Ltd", "price": 795.00, "entry": "Below ₹788", "sl": "₹812.00", "tgt": "₹750.00", "setup": "Real Estate Profit Booking Breakdown", "score": "85%"},
             {"sym": "GODREJPROP", "name": "Godrej Properties Ltd", "price": 2780.00, "entry": "Below ₹2,750", "sl": "₹2,840.00", "tgt": "₹2,620.00", "setup": "Double Top Rejection at Overhead Resistance", "score": "85%"},
-            {"sym": "BANDHANBNK", "name": "Bandhan Bank Ltd", "price": 168.00, "entry": "Below ₹165", "sl": "₹173.00", "tgt": "₹152.00", "setup": "Asset Quality Concerns Channel Breakdown", "score": "85%"},
             {"sym": "VOLTAS", "name": "Voltas Ltd", "price": 1640.00, "entry": "Below ₹1,625", "sl": "₹1,675.00", "tgt": "₹1,540.00", "setup": "Seasonal Cooling Slowdown Distribution", "score": "84%"},
-            {"sym": "BATAINDIA", "name": "Bata India Ltd", "price": 1340.00, "entry": "Below ₹1,328", "sl": "₹1,365.00", "tgt": "₹1,270.00", "setup": "Persistent Institutional Outflow Down-trend", "score": "84%"},
-            {"sym": "DIVISLAB", "name": "Divi's Laboratories Ltd", "price": 5650.00, "entry": "Below ₹5,600", "sl": "₹5,750.00", "tgt": "₹5,380.00", "setup": "API Segment Margin Pressure Selloff", "score": "83%"},
-            {"sym": "SAIL", "name": "Steel Authority of India", "price": 115.00, "entry": "Below ₹113.50", "sl": "₹118.00", "tgt": "₹106.00", "setup": "Metals Correction + 20 EMA Gap Down", "score": "83%"},
+            {"sym": "SAIL", "name": "Steel Authority of India", "price": 164.11, "entry": "Below ₹162.50", "sl": "₹168.00", "tgt": "₹154.00", "setup": "Metals Correction + 20 EMA Gap Down", "score": "83%"},
             {"sym": "ZEEL", "name": "Zee Entertainment Enterprises", "price": 118.00, "entry": "Below ₹116.00", "sl": "₹122.00", "tgt": "₹106.00", "setup": "Consolidation Floor Breakdown", "score": "82%"}
         ]
 
@@ -1391,12 +1687,11 @@ with tab_radar:
                 if st.button(f"📉 Analyze {stk['sym']}", key=f"r_s_{stk['sym']}_{j}", use_container_width=True):
                     open_stock_terminal(stk["sym"], stk["name"], "NSE", f"{stk['sym']}.NS", stk["price"])
 
-    # 3. FII HEAVY ACCUMULATION (SMART MONEY RADAR)
     with radar_sub3:
         fii_hdr = clean_html("""
         <div style="background:#101625; border:1.5px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
         <b style="color:#38bdf8; font-size:1.15rem;">🏦 FII HEAVY ACCUMULATION & INSTITUTIONAL INFLOW RADAR</b><br>
-        <small style="color:#cbd5e1;">Ye wo stocks hain jisme Foreign Institutional Investors (FIIs) ka heavy interest aur consistent stake expansion chal raha hai. FII stocks me institutional support hone ke karan retail buyers ko momentum ka bada fayda milta hai.</small>
+        <small style="color:#cbd5e1;">Ye wo stocks hain jisme Foreign Institutional Investors (FIIs) ka heavy interest aur consistent stake expansion chal raha hai.</small>
         </div>
         """)
         st.markdown(fii_hdr, unsafe_allow_html=True)
@@ -1417,6 +1712,13 @@ with tab_radar:
                 "entry": "Above ₹1,428", "sl": "₹1,402.00", "tgt": "₹1,475.00"
             },
             {
+                "sym": "SHRIRAMFIN", "name": "Shriram Finance Ltd", "price": 972.00,
+                "fii_holding": "54.1%", "fii_action": "Nifty 50 & Momentum 30 Dual Passive Inflow",
+                "delivery": "66.5% Delivery Volume",
+                "why": "High FII ownership aur strong retail AUM growth ke karan global funds ki top NBFC holding.",
+                "entry": "Above ₹978", "sl": "₹948.00", "tgt": "₹1,035.00"
+            },
+            {
                 "sym": "BHARTIARTL", "name": "Bharti Airtel Ltd", "price": 1620.00,
                 "fii_holding": "25.6%", "fii_action": "+3.4% FII Stake Jump (ARPU Surge)",
                 "delivery": "71.0% High Delivery",
@@ -1424,39 +1726,18 @@ with tab_radar:
                 "entry": "Above ₹1,626", "sl": "₹1,588.00", "tgt": "₹1,710.00"
             },
             {
-                "sym": "LT", "name": "Larsen & Toubro Ltd", "price": 3610.00,
-                "fii_holding": "24.1%", "fii_action": "Sovereign Wealth Funds Aggressive Accumulation",
-                "delivery": "61.5% Delivery Ratio",
-                "why": "Record high orderbook (₹5 Lakh Cr+). Global infra funds ka core portfolio holding.",
-                "entry": "Above ₹3,625", "sl": "₹3,540.00", "tgt": "₹3,780.00"
+                "sym": "ABB", "name": "ABB India Ltd", "price": 6934.50,
+                "fii_holding": "12.8%", "fii_action": "Global Industrial Automation Fund Buying",
+                "delivery": "63.2% Delivery Ratio",
+                "why": "Data center electrification aur factory automation me multi-year order visibility.",
+                "entry": "Above ₹6,960", "sl": "₹6,780.00", "tgt": "₹7,280.00"
             },
             {
-                "sym": "SUNPHARMA", "name": "Sun Pharmaceutical Industries", "price": 1820.00,
-                "fii_holding": "18.3%", "fii_action": "+1.2% QoQ Institutional Accumulation",
-                "delivery": "65.8% Delivery Volume",
-                "why": "Specialty pharma pipeline me multi-year high margins. Defensive aur growth dono me FII top pick.",
-                "entry": "Above ₹1,828", "sl": "₹1,785.00", "tgt": "₹1,910.00"
-            },
-            {
-                "sym": "TCS", "name": "Tata Consultancy Services Ltd", "price": 4145.00,
-                "fii_holding": "12.5%", "fii_action": "Steady Foreign Institutional Safe-Haven Allocation",
-                "delivery": "59.4% Delivery Ratio",
-                "why": "BFSI tech spending rebound par FIIs IT basket me sabse pehle TCS accumulate karte hain.",
-                "entry": "Above ₹4,160", "sl": "₹4,080.00", "tgt": "₹4,300.00"
-            },
-            {
-                "sym": "NTPCGREEN", "name": "NTPC Green Energy Ltd", "price": 118.00,
-                "fii_holding": "High Anchor Base", "fii_action": "Mega FII Anchor Book (100% Institutional Interest)",
-                "delivery": "74.0% Expected Delivery Lock-in",
-                "why": "Global ESG aur clean energy mandate funds ka fresh capital injection. Long term multi-bagger potential.",
-                "entry": "Above ₹120", "sl": "₹112.00", "tgt": "₹135.00"
-            },
-            {
-                "sym": "RELIANCE", "name": "Reliance Industries Ltd", "price": 2748.00,
-                "fii_holding": "21.7%", "fii_action": "FII Accumulation at 200-DMA Support",
-                "delivery": "62.3% Delivery Ratio",
-                "why": "Jio Platforms aur Retail value unlocking ke chalte global institutional funds low levels par buying kar rahe hain.",
-                "entry": "Above ₹2,758", "sl": "₹2,710.00", "tgt": "₹2,840.00"
+                "sym": "NTPC", "name": "NTPC Ltd", "price": 321.50,
+                "fii_holding": "18.4%", "fii_action": "FII Power & Green Transition Allocation",
+                "delivery": "61.8% Delivery Volume",
+                "why": "Thermal + Renewable capacity expansion aur attractive 10.5x P/E valuation.",
+                "entry": "Above ₹324", "sl": "₹314.00", "tgt": "₹342.00"
             }
         ]
 
@@ -1484,7 +1765,6 @@ with tab_radar:
                 if st.button(f"📈 Analyze FII Stock: {f_stk['sym']}", key=f"btn_fii_{f_stk['sym']}_{k}", use_container_width=True):
                     open_stock_terminal(f_stk["sym"], f_stk["name"], "NSE", f"{f_stk['sym']}.NS", f_stk["price"])
 
-    # 4. NIFTY & BANK NIFTY F&O (CE / PE) BREAKOUTS
     with radar_sub4:
         opt_hdr = clean_html("""
         <div style="background:#131c2e; border:1px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:14px;">
@@ -1667,9 +1947,12 @@ with tab_ipo:
             """)
             st.markdown(ipo_c_html, unsafe_allow_html=True)
             if st.button(f"➕ Add {ip['sym']} to Watchlist", key=f"btn_add_curr_ipo_{ip['sym']}", use_container_width=True):
-                if not any(w["symbol"] == ip["sym"] for w in st.session_state.my_watchlist):
-                    st.session_state.my_watchlist.append({"symbol": ip["sym"], "name": ip["name"], "exchange": "NSE", "yf": f"{ip['sym']}.NS", "price": 108.0})
-                    st.success(f"{ip['sym']} added!")
+                current_list = load_shared_watchlist()
+                if not any(w["symbol"] == ip["sym"] for w in current_list):
+                    current_list.append({"symbol": ip["sym"], "name": ip["name"], "exchange": "NSE", "yf": f"{ip['sym']}.NS", "price": 108.0})
+                    save_shared_watchlist(current_list)
+                    st.session_state.my_watchlist = current_list
+                    st.success(f"{ip['sym']} added & synced!")
                     st.rerun()
 
     with ipo_t2:
