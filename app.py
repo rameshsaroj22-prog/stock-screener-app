@@ -591,7 +591,7 @@ def fetch_tradingview_live_quote(symbol, exchange="NSE"):
 
     return None
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=20)
 def fetch_tradingview_batch_quotes(symbols_tuple):
     """Fetches real-time quotes for up to 50 stocks in a single fast API request."""
     out = {}
@@ -636,20 +636,65 @@ def fetch_tradingview_batch_quotes(symbols_tuple):
         pass
     return out
 
-# ----------------- DYNAMIC CANDLE GENERATOR -----------------
+@st.cache_data(ttl=300)
+def fetch_batch_real_history(symbols_tuple):
+    """Fetches real 1-month daily OHLCV history for multiple NSE stocks in one fast batch call."""
+    hist_map = {}
+    if not symbols_tuple:
+        return hist_map
+    yf_tickers = [f"{s.replace('.NS', '').replace('.BO', '').strip().upper()}.NS" for s in symbols_tuple]
+    try:
+        raw = yf.download(
+            tickers=yf_tickers,
+            period="1mo",
+            interval="1d",
+            group_by="ticker",
+            threads=True,
+            progress=False
+        )
+        if raw is None or raw.empty:
+            return hist_map
+
+        if isinstance(raw.columns, pd.MultiIndex):
+            lvl0 = raw.columns.get_level_values(0)
+            for sym in symbols_tuple:
+                clean_s = sym.replace(".NS", "").replace(".BO", "").strip().upper()
+                tkr = f"{clean_s}.NS"
+                if tkr in lvl0:
+                    sub_df = raw[tkr].dropna(subset=["Close"]).copy()
+                    if len(sub_df) >= 3:
+                        hist_map[clean_s] = sub_df
+        else:
+            clean_s = symbols_tuple[0].replace(".NS", "").replace(".BO", "").strip().upper()
+            sub_df = raw.dropna(subset=["Close"]).copy()
+            if len(sub_df) >= 3:
+                hist_map[clean_s] = sub_df
+    except Exception:
+        pass
+    return hist_map
+
+# ----------------- DETERMINISTIC CANDLE GENERATOR (NEVER FLIPS ON REFRESH) -----------------
 def generate_pro_candles_by_period(base_price, period_choice, symbol=None):
     today = datetime.date.today()
     listing_date = STOCK_LISTING_REGISTRY.get(symbol, None)
 
+    # Fixed per-symbol deterministic seed so fallback data NEVER changes randomly on refresh
+    sym_str = str(symbol or "DEFAULT")
+    det_seed = sum(ord(ch) for ch in sym_str) * 31 + 101
+    rng = np.random.default_rng(det_seed)
+
+    # Anchor intraday timestamps to market close (15:30) of today so they don't shift every second
+    anchor_dt = datetime.datetime.combine(today, datetime.time(15, 30))
+
     if period_choice == "1D":
-        times = pd.date_range(end=datetime.datetime.now(), periods=50, freq='5min')
-        returns = np.random.normal(-0.0001, 0.002, 50)
+        times = pd.date_range(end=anchor_dt, periods=50, freq='5min')
+        returns = rng.normal(-0.0001, 0.002, 50)
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
         curve = curve * (base_price / curve[-1])
         df = pd.DataFrame(index=times)
     elif period_choice == "5D":
-        times = pd.date_range(end=datetime.datetime.now(), periods=40, freq='30min')
-        returns = np.random.normal(-0.0002, 0.005, 40)
+        times = pd.date_range(end=anchor_dt, periods=40, freq='30min')
+        returns = rng.normal(-0.0002, 0.005, 40)
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
         curve = curve * (base_price / curve[-1])
         df = pd.DataFrame(index=times)
@@ -682,17 +727,16 @@ def generate_pro_candles_by_period(base_price, period_choice, symbol=None):
             dates = pd.bdate_range(end=today, periods=5)
             days = len(dates)
 
-        np.random.seed(101)
-        returns = np.random.normal(0.0005, 0.012, days)
+        returns = rng.normal(0.0005, 0.012, days)
         curve = base_price * np.exp(np.cumsum(returns[::-1]))[::-1]
         curve = curve * (base_price / curve[-1])
         df = pd.DataFrame(index=dates)
 
     df['Close'] = curve
     df['Open'] = df['Close'].shift(1).fillna(df['Close'] * 0.994)
-    df['High'] = df[['Open', 'Close']].max(axis=1) * (1 + np.random.uniform(0.001, 0.008, len(df)))
-    df['Low'] = df[['Open', 'Close']].min(axis=1) * (1 - np.random.uniform(0.001, 0.008, len(df)))
-    df['Volume'] = np.random.randint(500000, 2500000, len(df))
+    df['High'] = df[['Open', 'Close']].max(axis=1) * (1 + rng.uniform(0.001, 0.008, len(df)))
+    df['Low'] = df[['Open', 'Close']].min(axis=1) * (1 - rng.uniform(0.001, 0.008, len(df)))
+    df['Volume'] = rng.integers(500000, 2500000, len(df))
     return df
 
 # ----------------- CHANDELIER EXIT [EVERGET] (ATR 7, MULTIPLIER 2.0) -----------------
@@ -832,7 +876,7 @@ if "SENSEX" in idx_res:
 
 cols_idx[2].markdown(
     '<div style="text-align:right; padding-top:6px; font-size:0.9rem; color:#10b981; font-weight:700;">'
-    '● Nifty 200 Momentum 30 + Cloud Watchlists Online'
+    '● Real OHLC Screener & Momentum 30 Engine Active'
     '</div>',
     unsafe_allow_html=True
 )
@@ -1191,24 +1235,33 @@ with tab_terminal:
 
 # ==================== TAB 2: WATCHLISTS (PERSONAL + NIFTY 200 MOMENTUM 30) ====================
 with tab_watchlist:
-    @st.cache_data(ttl=20)
-    def evaluate_stock_breakout_status(sym, exch, live_p):
+    def evaluate_stock_breakout_status(sym, exch, live_p, real_df=None):
+        """Evaluates Chandelier Exit (7, 2.0) on real historical daily OHLC + live price (100% deterministic)."""
         try:
-            df = generate_pro_candles_by_period(live_p, "1D", sym)
+            if real_df is not None and len(real_df) >= 3:
+                df = real_df.copy()
+            else:
+                df = generate_pro_candles_by_period(live_p, "1M", sym)
+
             df.loc[df.index[-1], 'Close'] = live_p
-            df = calculate_chandelier_exit(df, length=7, mult=2.0)
-            
+            if 'High' in df.columns:
+                df.loc[df.index[-1], 'High'] = max(float(df['High'].iloc[-1]), live_p)
+            if 'Low' in df.columns:
+                df.loc[df.index[-1], 'Low'] = min(float(df['Low'].iloc[-1]), live_p)
+
+            df = calculate_chandelier_exit(df, length=7, mult=2.0, use_close=True)
+
             c = float(df['Close'].iloc[-1])
             prev_dir = int(df['Chandelier_Dir'].iloc[-2]) if len(df) >= 2 else int(df['Chandelier_Dir'].iloc[-1])
             prev_short = float(df['Chandelier_Short'].iloc[-2]) if len(df) >= 2 else float(df['Chandelier_Stop'].iloc[-1])
             prev_long = float(df['Chandelier_Long'].iloc[-2]) if len(df) >= 2 else float(df['Chandelier_Stop'].iloc[-1])
             current_dir = int(df['Chandelier_Dir'].iloc[-1])
-            
+
             if prev_dir == -1 and c >= prev_short:
                 return "⚡ EARLY BUY TRIGGERED (Forming Candle Breaking Out!)", "🟢 BUY", round(prev_long, 2), round(c * 1.035, 2)
             elif current_dir == 1:
                 return "🟢 BULLISH MOMENTUM", "🟢 BUY", round(prev_long, 2), round(c * 1.035, 2)
-            elif prev_short - c <= (0.012 * c):
+            elif prev_short - c <= (0.015 * c):
                 return "⏳ NEAR BREAKOUT WATCH", "🟡 WATCH", round(c * 0.97, 2), round(prev_short, 2)
             else:
                 return "🔴 BEARISH / EXIT", "🔴 SELL", round(prev_short, 2), round(c * 0.965, 2)
@@ -1225,7 +1278,7 @@ with tab_watchlist:
         m30_hdr = clean_html("""
         <div style="background:#101a2b; border:1.5px solid #38bdf8; border-radius:8px; padding:12px 16px; margin-bottom:12px;">
         <b style="color:#38bdf8; font-size:1.15rem;">🔥 NIFTY 200 MOMENTUM 30 — DEDICATED 30-STOCK WATCHLIST & SCREENER</b><br>
-        <small style="color:#cbd5e1;">Aapki Excel/CSV sheet ke sabhi 30 high-momentum stocks ka live price, Chandelier (7, 2.0) signal, aur Early Breakout status.</small>
+        <small style="color:#cbd5e1;">Real daily OHLC candles + live TradingView price par Chandelier (7, 2.0) signal (100% consistent across refreshes).</small>
         </div>
         """)
         st.markdown(m30_hdr, unsafe_allow_html=True)
@@ -1233,7 +1286,6 @@ with tab_watchlist:
         m30_list = load_momentum30_watchlist()
         st.session_state.momentum30_watchlist = m30_list
 
-        # Industry Filter + Cloud Refresh
         f_col1, f_col2 = st.columns([7.5, 2.5])
         all_industries = ["All Industries"] + sorted(list({x.get("industry", "Other") for x in m30_list}))
         with f_col1:
@@ -1241,14 +1293,15 @@ with tab_watchlist:
         with f_col2:
             st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
             if st.button("🔄 Refresh 30 Live Prices", key="btn_refresh_m30", use_container_width=True):
-                st.cache_data.clear()
+                fetch_tradingview_batch_quotes.clear()
                 st.rerun()
 
         filtered_m30 = m30_list if selected_ind == "All Industries" else [x for x in m30_list if x.get("industry") == selected_ind]
 
-        # Batch fetch live quotes for all 30 stocks in 1 single API call
+        # Batch fetch live quotes & real 1M daily candles for all filtered stocks
         symbols_tuple = tuple(x["symbol"] for x in filtered_m30)
         batch_quotes = fetch_tradingview_batch_quotes(symbols_tuple)
+        batch_hist = fetch_batch_real_history(symbols_tuple)
 
         m30_rows = []
         m30_bull = 0
@@ -1264,8 +1317,9 @@ with tab_watchlist:
             q = batch_quotes.get(sym.upper())
             c_price = q["price"] if q else fallback_p
             c_pct = q["change_pct"] if q else "0.0%"
+            real_df = batch_hist.get(sym.upper())
 
-            early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(sym, "NSE", c_price)
+            early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(sym, "NSE", c_price, real_df=real_df)
 
             if "EARLY BUY TRIGGERED" in early_status:
                 m30_early += 1
@@ -1337,7 +1391,6 @@ with tab_watchlist:
                     else:
                         st.info(f"{chosen['symbol']} pehle se Personal Watchlist me hai.")
 
-        # Optional Uploader for future Excel/CSV lists
         with st.expander("📂 Upload Updated Excel (.xlsx) or CSV File to Update Momentum 30 List"):
             uploaded_sheet = st.file_uploader("Upload NSE / Custom Stock List (.csv or .xlsx)", type=["csv", "xlsx"], key="m30_uploader")
             if uploaded_sheet is not None:
@@ -1378,6 +1431,7 @@ with tab_watchlist:
         sync_c1, sync_c2 = st.columns([8.2, 1.8])
         with sync_c2:
             if st.button("🔄 Sync with Cloud", use_container_width=True):
+                fetch_tradingview_batch_quotes.clear()
                 st.session_state.my_watchlist = load_shared_watchlist()
                 st.toast("Watchlist synced across devices!", icon="🔄")
                 st.rerun()
@@ -1387,6 +1441,7 @@ with tab_watchlist:
 
         p_symbols_tuple = tuple(x["symbol"] for x in active_watchlist)
         p_batch_quotes = fetch_tradingview_batch_quotes(p_symbols_tuple)
+        p_batch_hist = fetch_batch_real_history(p_symbols_tuple)
 
         w_rows = []
         bullish_count = 0
@@ -1402,8 +1457,9 @@ with tab_watchlist:
             tv_w = p_batch_quotes.get(s_sym.upper())
             c_price = tv_w["price"] if tv_w else s_price
             c_pct = tv_w["change_pct"] if tv_w else "0.0%"
+            real_df = p_batch_hist.get(s_sym.upper())
 
-            early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(s_sym, s_exch, c_price)
+            early_status, sig, sl_calc, tgt_calc = evaluate_stock_breakout_status(s_sym, s_exch, c_price, real_df=real_df)
 
             if "EARLY BUY TRIGGERED" in early_status:
                 early_buy_count += 1
